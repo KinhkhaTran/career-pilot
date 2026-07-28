@@ -3,17 +3,23 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as postgres_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.matching.engine import evaluate_match, fingerprint_inputs
+from app.matching.engine import MatchConstraints, evaluate_match, fingerprint_inputs
 from app.models.job import Job
 from app.models.match import Match
 from app.models.profile import CandidateProfile
-from app.schemas.match import MatchRefreshResponse, MatchRefreshSchema, MatchSchema
+from app.schemas.match import (
+    MatchRefreshAllResponse,
+    MatchRefreshResponse,
+    MatchRefreshSchema,
+    MatchSchema,
+    ProfileRefreshSummary,
+)
 
 router = APIRouter()
 
@@ -94,14 +100,30 @@ async def refresh_matches(
     if payload.job_ids is not None and len(jobs) != len(set(payload.job_ids)):
         raise HTTPException(status_code=404, detail="One or more requested jobs were not found")
 
+    created, existing, results = await _score_jobs_for_profile(
+        db, profile, jobs, payload.constraints
+    )
+    return MatchRefreshResponse(created=created, existing=existing, matches=results)
+
+
+async def _score_jobs_for_profile(
+    db: AsyncSession,
+    profile: CandidateProfile,
+    jobs: list[Job],
+    constraints: MatchConstraints,
+) -> tuple[int, int, list[MatchSchema]]:
+    """Score every job for one profile, upserting Match rows idempotently.
+
+    Returns (created, existing, matches). Never creates or mutates applications.
+    """
     profile_data = _profile_payload(profile)
     results: list[MatchSchema] = []
     created = 0
     existing = 0
     for job in jobs:
         job_data = _job_payload(job)
-        fingerprint = fingerprint_inputs(job_data, profile_data, payload.constraints)
-        result = evaluate_match(job_data, profile_data, payload.constraints)
+        fingerprint = fingerprint_inputs(job_data, profile_data, constraints)
+        result = evaluate_match(job_data, profile_data, constraints)
         values = {
             "job_id": job.id, "candidate_profile_id": profile.id, "profile_version": profile.version,
             "input_fingerprint": fingerprint, "eligible": result.eligible, "score": result.score,
@@ -136,4 +158,60 @@ async def refresh_matches(
         else:
             existing += 1
         results.append(MatchSchema.model_validate(existing_item))
-    return MatchRefreshResponse(created=created, existing=existing, matches=results)
+    return created, existing, results
+
+
+@router.post("/refresh-all", response_model=MatchRefreshAllResponse)
+async def refresh_all_matches(db: AsyncSession = Depends(get_db)) -> MatchRefreshAllResponse:
+    """Recompute matches for every candidate profile at its latest version.
+
+    Called by the discovery scheduler after a discovery cycle so newly
+    discovered jobs are scored automatically. Never creates or submits
+    applications — it only refreshes local match scores.
+    """
+    latest_version = (
+        select(
+            CandidateProfile.id.label("pid"),
+            func.max(CandidateProfile.version).label("maxv"),
+        )
+        .group_by(CandidateProfile.id)
+        .subquery()
+    )
+    profiles = list(
+        (
+            await db.execute(
+                select(CandidateProfile).join(
+                    latest_version,
+                    (CandidateProfile.id == latest_version.c.pid)
+                    & (CandidateProfile.version == latest_version.c.maxv),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    jobs = list((await db.execute(select(Job))).scalars().all())
+
+    constraints = MatchConstraints()
+    total_created = 0
+    total_existing = 0
+    per_profile: list[ProfileRefreshSummary] = []
+    for profile in profiles:
+        created, existing, _ = await _score_jobs_for_profile(db, profile, jobs, constraints)
+        total_created += created
+        total_existing += existing
+        per_profile.append(
+            ProfileRefreshSummary(
+                profile_id=profile.id,
+                profile_version=profile.version,
+                created=created,
+                existing=existing,
+            )
+        )
+    return MatchRefreshAllResponse(
+        profiles=len(profiles),
+        jobs=len(jobs),
+        created=total_created,
+        existing=total_existing,
+        per_profile=per_profile,
+    )

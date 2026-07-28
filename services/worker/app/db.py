@@ -125,6 +125,19 @@ browser_screenshots_table = sa.Table(
     sa.Column("created_at", sa.DateTime(timezone=True)),
 )
 
+discovery_sources_table = sa.Table(
+    "discovery_sources",
+    _metadata,
+    sa.Column("id", sa.String(36), primary_key=True),
+    sa.Column("source", sa.String(64), nullable=False),
+    sa.Column("company_id", sa.String(256), nullable=False),
+    sa.Column("label", sa.String(200)),
+    sa.Column("enabled", sa.Boolean, nullable=False, default=True),
+    sa.Column("created_at", sa.DateTime(timezone=True)),
+    sa.Column("updated_at", sa.DateTime(timezone=True)),
+    sa.UniqueConstraint("source", "company_id", name="uq_discovery_source"),
+)
+
 # ---------------------------------------------------------------------------
 # Engine factory
 # ---------------------------------------------------------------------------
@@ -142,6 +155,28 @@ def get_engine() -> AsyncEngine:
 async def get_connection() -> AsyncIterator[AsyncConnection]:
     async with get_engine().begin() as conn:
         yield conn
+
+
+# ---------------------------------------------------------------------------
+# Discovery source list (scheduler input)
+# ---------------------------------------------------------------------------
+
+
+async def get_enabled_sources(conn: AsyncConnection) -> list[dict[str, str]]:
+    """Return enabled discovery sources for the scheduler, oldest first."""
+    result = await conn.execute(
+        sa.select(
+            discovery_sources_table.c.source,
+            discovery_sources_table.c.company_id,
+            discovery_sources_table.c.label,
+        )
+        .where(discovery_sources_table.c.enabled.is_(True))
+        .order_by(discovery_sources_table.c.created_at.asc())
+    )
+    return [
+        {"source": str(row.source), "company_id": str(row.company_id), "label": row.label or ""}
+        for row in result
+    ]
 
 
 # ---------------------------------------------------------------------------

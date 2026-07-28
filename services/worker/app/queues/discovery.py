@@ -17,14 +17,51 @@ from datetime import UTC, datetime
 
 from app.adapters.base import ATSAdapter, NormalizedJobData, RetryExhaustedError
 from app.adapters.normalizer import normalize
+from app.adapters.registry import build_adapter
 from app.db import (
     append_discovery_event,
+    create_discovery_run,
     get_connection,
+    get_discovery_run_result,
     update_discovery_run_status,
     upsert_job,
 )
 
 logger = logging.getLogger(__name__)
+
+
+async def discover_source(
+    source: str,
+    company_id: str,
+    *,
+    idempotency_key: str | None = None,
+) -> dict[str, object]:
+    """Create an idempotent discovery run for one source and execute it.
+
+    Shared by the ARQ ``discover_jobs_task`` and the scheduler cron so both the
+    manual and scheduled paths use identical run bookkeeping. Returns a dict with
+    ``run_id``, ``source``, ``company_id`` and the discover/upsert/skip counts.
+    """
+    adapter = build_adapter(source, company_id)
+    ikey = idempotency_key or f"{source}:{company_id}"
+
+    async with get_connection() as conn:
+        run_id, created = await create_discovery_run(
+            conn, source=source, company_id=company_id, idempotency_key=ikey
+        )
+        if not created:
+            return {
+                "run_id": run_id,
+                "source": source,
+                "company_id": company_id,
+                **await get_discovery_run_result(conn, run_id),
+            }
+
+    logger.info(
+        "Discovery started: source=%r company_id=%r run_id=%r", source, company_id, run_id
+    )
+    counts = await run_discovery(adapter, run_id)
+    return {"run_id": run_id, "source": source, "company_id": company_id, **counts}
 
 
 async def run_discovery(

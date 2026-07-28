@@ -74,6 +74,26 @@ async def test_refresh_matches_is_idempotent_and_read_only(client: AsyncClient, 
 
 
 @pytest.mark.anyio
+async def test_refresh_all_scores_every_profile_and_is_idempotent(
+    client: AsyncClient, db_session
+) -> None:
+    await _seed_match_inputs(db_session)
+
+    first = await client.post("/api/v1/matches/refresh-all")
+    second = await client.post("/api/v1/matches/refresh-all")
+
+    assert first.status_code == 200
+    body = first.json()
+    assert body["profiles"] == 1
+    assert body["jobs"] == 1
+    assert body["created"] == 1
+    assert body["per_profile"][0]["created"] == 1
+    # Second pass creates nothing new — matches are idempotent by fingerprint.
+    assert second.json()["created"] == 0
+    assert (await db_session.execute(select(Match))).scalars().all().__len__() == 1
+
+
+@pytest.mark.anyio
 async def test_match_api_rejects_unknown_profile_version(client: AsyncClient, db_session) -> None:
     profile_id, job_id = await _seed_match_inputs(db_session)
 

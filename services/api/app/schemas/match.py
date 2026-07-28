@@ -34,3 +34,20 @@ class MatchRefreshResponse(BaseModel):
     created: int
     existing: int
     matches: list[MatchSchema]
+
+
+class ProfileRefreshSummary(BaseModel):
+    profile_id: str
+    profile_version: int
+    created: int
+    existing: int
+
+
+class MatchRefreshAllResponse(BaseModel):
+    """Summary of a match refresh across every candidate profile."""
+
+    profiles: int
+    jobs: int
+    created: int
+    existing: int
+    per_profile: list[ProfileRefreshSummary]

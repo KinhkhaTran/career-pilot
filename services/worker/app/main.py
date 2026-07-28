@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
 
-from app.config import worker_settings
+from app.config import get_redis_settings, worker_settings
 
 logging.basicConfig(
     level=logging.INFO,
@@ -15,17 +14,26 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def get_redis_settings() -> Any:
-    from urllib.parse import urlparse
+def _discovery_cron_jobs() -> list:
+    """Build the scheduled-discovery cron job list, if the scheduler is enabled."""
+    if not worker_settings.discovery_scheduler_enabled:
+        logger.info("Discovery scheduler disabled; running worker without cron jobs")
+        return []
 
-    from arq.connections import RedisSettings
+    from arq import cron
 
-    u = urlparse(worker_settings.redis_url)
-    return RedisSettings(
-        host=u.hostname or "localhost",
-        port=u.port or 6379,
-        database=int((u.path or "/0").lstrip("/")),
+    from app.queues.scheduler import scheduled_discovery
+
+    minutes = {
+        int(part)
+        for part in worker_settings.discovery_schedule_minutes.split(",")
+        if part.strip().isdigit()
+    } or {0}
+    logger.info(
+        "Discovery scheduler enabled: firing at minute(s) %s and at worker startup",
+        sorted(minutes),
     )
+    return [cron(scheduled_discovery, minute=minutes, run_at_startup=True)]
 
 
 async def main() -> None:
@@ -37,6 +45,7 @@ async def main() -> None:
 
     worker = Worker(
         functions=[ping_task, discover_jobs_task],
+        cron_jobs=_discovery_cron_jobs(),
         redis_settings=redis_settings,
         on_startup=startup,
         on_shutdown=shutdown,

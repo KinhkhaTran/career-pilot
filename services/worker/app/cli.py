@@ -6,11 +6,12 @@ import argparse
 import asyncio
 
 from arq import create_pool
-from arq.connections import RedisSettings
+
+from app.config import get_redis_settings
 
 
 async def enqueue_discovery(source: str, company_id: str) -> None:
-    redis = await create_pool(RedisSettings())
+    redis = await create_pool(get_redis_settings())
     try:
         await redis.enqueue_job(
             "discover_jobs_task",
