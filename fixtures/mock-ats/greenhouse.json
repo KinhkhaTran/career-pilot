@@ -1,0 +1,34 @@
+{
+  "jobs": [
+    {
+      "id": 4001001,
+      "title": "Senior Software Engineer, Platform",
+      "updated_at": "2024-07-01T09:00:00-05:00",
+      "location": {"name": "San Francisco, CA"},
+      "content": "<div class=\"content-intro\"><p>Acme Corp (Fictitious) is looking for a Senior Software Engineer to join our Platform team. You will design and build the distributed infrastructure that powers our product.</p></div><div class=\"content-conclusion\"><ul><li>5+ years of software engineering experience</li><li>Strong Python and Go skills</li><li>Experience with distributed systems</li><li>PostgreSQL, Redis, or similar databases</li></ul><p>Nice to have: Kubernetes, AWS, Terraform</p></div>",
+      "absolute_url": "https://boards.greenhouse.io/acmecorp/jobs/4001001",
+      "departments": [{"id": 100, "name": "Engineering", "parent_id": null, "child_ids": []}],
+      "offices": [{"id": 200, "name": "San Francisco", "location": null, "parent_id": null}]
+    },
+    {
+      "id": 4001002,
+      "title": "Staff Engineer, Infrastructure",
+      "updated_at": "2024-07-02T10:30:00-05:00",
+      "location": {"name": "Remote"},
+      "content": "<div class=\"content-intro\"><p>We are hiring a Staff Engineer for our Infrastructure team. This is a fully remote role.</p></div><div class=\"content-conclusion\"><ul><li>8+ years of experience</li><li>Deep expertise in Kubernetes and container orchestration</li><li>Experience with Terraform and infrastructure-as-code</li><li>AWS or GCP cloud platforms</li></ul></div>",
+      "absolute_url": "https://boards.greenhouse.io/acmecorp/jobs/4001002",
+      "departments": [{"id": 101, "name": "Infrastructure", "parent_id": 100, "child_ids": []}],
+      "offices": [{"id": 201, "name": "Remote", "location": null, "parent_id": null}]
+    },
+    {
+      "id": 4001003,
+      "title": "Backend Engineer (Python)",
+      "updated_at": "2024-06-28T08:00:00-05:00",
+      "location": {"name": "New York, NY"},
+      "content": "<div class=\"content-intro\"><p>Join our growing engineering team. You will build APIs and backend services for our core product.</p></div><div class=\"content-conclusion\"><ul><li>3+ years backend engineering experience</li><li>Python proficiency required</li><li>FastAPI or Django experience a plus</li><li>Experience with async Python</li></ul></div>",
+      "absolute_url": "https://boards.greenhouse.io/acmecorp/jobs/4001003",
+      "departments": [{"id": 100, "name": "Engineering", "parent_id": null, "child_ids": []}],
+      "offices": [{"id": 202, "name": "New York", "location": null, "parent_id": null}]
+    }
+  ]
+}

@@ -4,6 +4,24 @@ CareerPilot is a clean-room, human-reviewed AI job discovery and assisted-applic
 
 > **Initial release boundary:** Always stops before final submission. No CAPTCHA solving, no identity-verification bypass, no job-site password storage, no inbox-code retrieval, no unattended submission.
 
+## Phase 2 — Job Discovery
+
+Phase 2 adds public read-only job discovery from Greenhouse, Lever, and Ashby.
+
+| Feature | Status |
+|---------|--------|
+| Greenhouse public board adapter | ✅ |
+| Lever public postings adapter | ✅ |
+| Ashby public job board adapter | ✅ |
+| Generic crawler boundary interface (Crawl4AI-compatible) | ✅ |
+| Job normalization (HTML stripping, remote/tech detection) | ✅ |
+| Deterministic SHA-256 snapshot deduplication | ✅ |
+| Discovery run models + append-only event log | ✅ |
+| `discover_jobs_task` ARQ worker task | ✅ |
+| Discovery runs API (`GET /api/v1/discovery/runs`) | ✅ |
+| Dashboard discovery runs page | ✅ |
+| Mock ATS fixtures (`fixtures/mock-ats/`) | ✅ |
+
 ## Phase 1 — Foundation
 
 This monorepo provides:
@@ -12,12 +30,13 @@ This monorepo provides:
 |-----------|------|-------------|
 | Dashboard | `apps/dashboard` | Next.js 14 (App Router) · TypeScript strict |
 | API | `services/api` | FastAPI · SQLAlchemy async · Pydantic v2 |
-| Worker | `services/worker` | ARQ · ATS adapter interfaces (stubs) |
+| Worker | `services/worker` | ARQ · Greenhouse/Lever/Ashby adapters |
 | Contracts | `packages/contracts` | Shared TypeScript types |
 | UI | `packages/ui` | Accessible React primitives |
 | DB | `db/` | Alembic migrations · Fake seed data |
 | Infra | `infra/` | Docker Compose |
 | Docs | `docs/` | Architecture · ADRs · Security |
+| Fixtures | `fixtures/mock-ats/` | Deterministic ATS mock payloads |
 
 ## Quick start
 

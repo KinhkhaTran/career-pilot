@@ -1,4 +1,4 @@
-.PHONY: help setup dev test lint typecheck migrate seed docker-up docker-down docker-logs clean
+.PHONY: help setup dev test lint typecheck migrate seed discover docker-up docker-down docker-logs clean
 
 PYTHON_SERVICES = services/api services/worker
 NPM_CMD = npm
@@ -57,6 +57,22 @@ test-python: ## Run Python tests
 
 test-state-machine: ## Run state machine safety tests only
 	cd services/api && python -m pytest tests/test_state_machine.py -v
+
+test-discovery: ## Run discovery tests only (adapter + normalizer + API)
+	cd services/worker && python -m pytest tests/test_normalizer.py tests/test_adapters.py tests/test_discovery.py -v
+	cd services/api && python -m pytest tests/test_discovery.py -v
+
+discover: ## Enqueue a discovery run (args: SOURCE=greenhouse COMPANY_ID=acme)
+	@echo "==> Enqueuing discovery run: source=$(SOURCE) company_id=$(COMPANY_ID)"
+	@cd services/worker && python -c "\
+import asyncio; \
+from arq import create_pool; \
+from arq.connections import RedisSettings; \
+async def main(): \
+    redis = await create_pool(RedisSettings()); \
+    await redis.enqueue_job('discover_jobs_task', source='$(SOURCE)', company_id='$(COMPANY_ID)'); \
+    print('Enqueued discover_jobs_task for $(SOURCE):$(COMPANY_ID)'); \
+asyncio.run(main())"
 
 lint: lint-js lint-python ## Run all linters
 

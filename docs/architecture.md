@@ -152,6 +152,57 @@ graph TB
     WRK --> PG
 ```
 
+## Phase 2 Discovery Data Model
+
+```mermaid
+erDiagram
+    DISCOVERY_RUNS {
+        uuid id PK
+        varchar source
+        varchar company_id
+        varchar status
+        varchar idempotency_key
+        int jobs_discovered
+        int jobs_upserted
+        int jobs_skipped
+        text error_message
+        timestamptz started_at
+        timestamptz completed_at
+        timestamptz created_at
+    }
+
+    DISCOVERY_RUN_EVENTS {
+        uuid id PK
+        uuid discovery_run_id FK
+        varchar event_type
+        jsonb detail
+        timestamptz created_at
+    }
+
+    DISCOVERY_RUNS ||--o{ DISCOVERY_RUN_EVENTS : "audit trail"
+    DISCOVERY_RUNS }o--o{ JOBS : "discovers"
+```
+
+## Phase 2 Adapter Architecture
+
+```mermaid
+graph TD
+    Scheduler[ARQ Scheduler] -->|enqueue discover_jobs_task| Queue[(Redis Queue)]
+    Queue --> Worker[ARQ Worker]
+    Worker -->|instantiate| GH[GreenhouseAdapter]
+    Worker -->|instantiate| LV[LeverAdapter]
+    Worker -->|instantiate| AB[AshbyAdapter]
+    GH -->|public API| GH_API[boards-api.greenhouse.io]
+    LV -->|public API| LV_API[api.lever.co]
+    AB -->|public API| AB_API[api.ashbyhq.com]
+    GH --> Norm[Normalizer]
+    LV --> Norm
+    AB --> Norm
+    Norm -->|upsert + dedupe| DB[(PostgreSQL)]
+    DB -->|read| API[FastAPI]
+    API --> Dashboard[Next.js Dashboard]
+```
+
 ## ADR Index
 
 | ADR | Title | Status |
@@ -159,3 +210,4 @@ graph TB
 | [0001](adr/0001-stop-before-submit.md) | Initial Release Always Stops Before Final Submission | Accepted |
 | [0002](adr/0002-application-state-machine.md) | Immutable Append-Only Application Event Log | Accepted |
 | [0003](adr/0003-monorepo-structure.md) | Monorepo with Turborepo and Isolated Python Services | Accepted |
+| [0004](adr/0004-job-discovery-adapters.md) | Public ATS Adapters and Generic Crawler Boundary | Accepted |

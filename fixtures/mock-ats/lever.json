@@ -1,0 +1,98 @@
+[
+  {
+    "id": "lever-posting-uuid-0001",
+    "text": "Senior Backend Engineer",
+    "categories": {
+      "location": "Remote",
+      "team": "Engineering",
+      "commitment": "Full-time",
+      "department": "Product Engineering"
+    },
+    "content": {
+      "description": "We are looking for a Senior Backend Engineer to help us scale our infrastructure. You will work on high-throughput services and APIs that serve millions of users.",
+      "descriptionHtml": "<div><p>We are looking for a Senior Backend Engineer to help us scale our infrastructure.</p></div>",
+      "lists": [
+        {
+          "text": "What you'll do",
+          "content": "<li>Design and implement scalable backend services</li><li>Lead technical initiatives across the team</li><li>Mentor junior engineers</li>"
+        },
+        {
+          "text": "Requirements",
+          "content": "<li>5+ years of backend engineering experience</li><li>Strong Python or Go skills</li><li>Experience with PostgreSQL and Redis</li><li>Familiarity with microservices architecture</li>"
+        },
+        {
+          "text": "Nice to Have",
+          "content": "<li>Kubernetes experience</li><li>AWS or GCP</li><li>Kafka or similar messaging</li>"
+        }
+      ],
+      "closing": "We offer competitive compensation and a fully remote work environment.",
+      "closingHtml": "<p>We offer competitive compensation and a fully remote work environment.</p>"
+    },
+    "urls": {
+      "list": "https://jobs.lever.co/nexuslabs",
+      "show": "https://jobs.lever.co/nexuslabs/lever-posting-uuid-0001",
+      "apply": "https://jobs.lever.co/nexuslabs/lever-posting-uuid-0001/apply"
+    },
+    "createdAt": 1719820800000
+  },
+  {
+    "id": "lever-posting-uuid-0002",
+    "text": "Software Engineer, Data Platform",
+    "categories": {
+      "location": "Austin, TX",
+      "team": "Data",
+      "commitment": "Full-time",
+      "department": "Data Platform"
+    },
+    "content": {
+      "description": "Join our data platform team to build the pipelines and infrastructure that power our analytics products.",
+      "descriptionHtml": "<div><p>Join our data platform team.</p></div>",
+      "lists": [
+        {
+          "text": "Requirements",
+          "content": "<li>3+ years software engineering</li><li>Python and SQL expertise</li><li>Experience with Spark, Airflow, or similar</li><li>Strong data modeling skills</li>"
+        },
+        {
+          "text": "Nice to Have",
+          "content": "<li>dbt experience</li><li>Kafka or Kinesis</li>"
+        }
+      ],
+      "closing": "",
+      "closingHtml": ""
+    },
+    "urls": {
+      "list": "https://jobs.lever.co/nexuslabs",
+      "show": "https://jobs.lever.co/nexuslabs/lever-posting-uuid-0002",
+      "apply": "https://jobs.lever.co/nexuslabs/lever-posting-uuid-0002/apply"
+    },
+    "createdAt": 1719734400000
+  },
+  {
+    "id": "lever-posting-uuid-0003",
+    "text": "Engineering Manager, Platform",
+    "categories": {
+      "location": "Remote",
+      "team": "Engineering Leadership",
+      "commitment": "Full-time",
+      "department": "Engineering"
+    },
+    "content": {
+      "description": "We're looking for an Engineering Manager to lead our Platform team of 6-8 engineers.",
+      "descriptionHtml": "<div><p>We're looking for an Engineering Manager.</p></div>",
+      "lists": [
+        {
+          "text": "Requirements",
+          "content": "<li>3+ years engineering management</li><li>Strong technical background in distributed systems</li><li>Experience hiring and growing engineering teams</li>"
+        }
+      ],
+      "closing": "",
+      "closingHtml": ""
+    },
+    "urls": {
+      "list": "https://jobs.lever.co/nexuslabs",
+      "show": "https://jobs.lever.co/nexuslabs/lever-posting-uuid-0003",
+      "apply": "https://jobs.lever.co/nexuslabs/lever-posting-uuid-0003/apply"
+    },
+    "createdAt": 1719648000000
+  }
+]

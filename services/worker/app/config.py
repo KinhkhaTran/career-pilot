@@ -13,6 +13,7 @@ class WorkerSettings(BaseSettings):
     )
 
     redis_url: str = "redis://localhost:6379/0"
+    database_url: str = "postgresql+asyncpg://careerpilot:careerpilot@localhost:5432/careerpilot"
     initial_submission_mode: Literal["stop_before_submit", "allow_submit"] = "stop_before_submit"
     max_retries: int = 3
     job_discovery_interval_seconds: int = 3600

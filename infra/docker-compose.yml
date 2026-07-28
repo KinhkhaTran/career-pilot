@@ -65,9 +65,12 @@ services:
     restart: unless-stopped
     environment:
       REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql+asyncpg://careerpilot:careerpilot@postgres:5432/careerpilot
       INITIAL_SUBMISSION_MODE: stop_before_submit
     depends_on:
       redis:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
 
 volumes:

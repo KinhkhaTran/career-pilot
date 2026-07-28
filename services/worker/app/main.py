@@ -31,17 +31,18 @@ def get_redis_settings() -> Any:
 async def main() -> None:
     from arq import Worker
 
-    from app.queues.tasks import ping_task, shutdown, startup
+    from app.queues.tasks import discover_jobs_task, ping_task, shutdown, startup
 
     redis_settings = get_redis_settings()
 
     worker = Worker(
-        functions=[ping_task],
+        functions=[ping_task, discover_jobs_task],
         redis_settings=redis_settings,
         on_startup=startup,
         on_shutdown=shutdown,
         max_jobs=10,
-        job_timeout=300,
+        job_timeout=600,
+        keep_result=3600,
     )
     await worker.async_run()
 

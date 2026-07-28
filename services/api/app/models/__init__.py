@@ -1,5 +1,6 @@
 from .application import Application, ApplicationEvent
 from .base import Base
+from .discovery_run import DiscoveryRun, DiscoveryRunEvent
 from .job import Job
 from .profile import CandidateProfile
 
@@ -9,4 +10,6 @@ __all__ = [
     "Job",
     "Application",
     "ApplicationEvent",
+    "DiscoveryRun",
+    "DiscoveryRunEvent",
 ]

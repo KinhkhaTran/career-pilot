@@ -1,0 +1,40 @@
+{
+  "jobs": [
+    {
+      "id": "ashby-job-uuid-0001",
+      "title": "Staff Software Engineer",
+      "isRemote": true,
+      "location": "Remote",
+      "employmentType": "FullTime",
+      "publishedAt": "2024-07-01T09:00:00.000Z",
+      "descriptionHtml": "<div><p>We're building the future of developer tooling. As a Staff Software Engineer, you'll lead technical strategy and mentor a team of engineers.</p><h3>Responsibilities</h3><ul><li>Architect and implement core platform features</li><li>Drive technical roadmap and strategy</li><li>Mentor senior and mid-level engineers</li></ul><h3>Requirements</h3><ul><li>8+ years of software engineering experience</li><li>Track record of leading technical initiatives</li><li>Experience with distributed systems at scale</li><li>Python, Go, or Rust expertise</li></ul><h3>Nice to Have</h3><ul><li>Open source contributions</li><li>Experience at a high-growth startup</li></ul></div>",
+      "jobUrl": "https://jobs.ashbyhq.com/orbittech/ashby-job-uuid-0001",
+      "department": {"id": "dept-eng-001", "name": "Engineering"},
+      "team": {"id": "team-platform-001", "name": "Platform"}
+    },
+    {
+      "id": "ashby-job-uuid-0002",
+      "title": "Senior Frontend Engineer (React)",
+      "isRemote": false,
+      "location": "Seattle, WA",
+      "employmentType": "FullTime",
+      "publishedAt": "2024-06-30T12:00:00.000Z",
+      "descriptionHtml": "<div><p>Join our product team as a Senior Frontend Engineer. You'll build the interfaces that millions of users interact with daily.</p><h3>Requirements</h3><ul><li>5+ years frontend engineering</li><li>Expert-level React and TypeScript</li><li>Experience with performance optimization</li><li>Strong CSS and accessibility knowledge</li></ul></div>",
+      "jobUrl": "https://jobs.ashbyhq.com/orbittech/ashby-job-uuid-0002",
+      "department": {"id": "dept-product-001", "name": "Product"},
+      "team": {"id": "team-frontend-001", "name": "Frontend"}
+    },
+    {
+      "id": "ashby-job-uuid-0003",
+      "title": "Site Reliability Engineer",
+      "isRemote": true,
+      "location": "Remote",
+      "employmentType": "FullTime",
+      "publishedAt": "2024-07-03T08:00:00.000Z",
+      "descriptionHtml": "<div><p>We're looking for an SRE to keep our systems reliable, scalable, and fast.</p><h3>Requirements</h3><ul><li>4+ years SRE or DevOps experience</li><li>Kubernetes and container orchestration</li><li>Prometheus, Grafana, or similar observability tools</li><li>On-call experience</li></ul><h3>Nice to Have</h3><ul><li>Terraform or Pulumi</li><li>Multi-region deployment experience</li></ul></div>",
+      "jobUrl": "https://jobs.ashbyhq.com/orbittech/ashby-job-uuid-0003",
+      "department": {"id": "dept-eng-001", "name": "Engineering"},
+      "team": {"id": "team-infra-001", "name": "Infrastructure"}
+    }
+  ]
+}

@@ -48,7 +48,7 @@ jobs:
         shell: bash
         run: |
           if grep -RInE 'captcha_solve|bypass_verification|proxy_rotation|inbox_code_retrieval|auto_submit|credential_harvest' \
-            services/api/app services/worker/app apps packages db --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=.venv; then
+            services/api/app services/worker/app apps packages db fixtures --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=.venv; then
             echo 'Prohibited automation pattern found'
             exit 1
           fi
