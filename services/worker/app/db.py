@@ -13,6 +13,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 import sqlalchemy as sa
@@ -86,9 +87,30 @@ browser_runs_table = sa.Table(
     "browser_runs",
     _metadata,
     sa.Column("id", sa.String(36), primary_key=True),
+    sa.Column("application_id", sa.String(36)),
     sa.Column("status", sa.String(64), nullable=False),
     sa.Column("stopped_before_submit", sa.Boolean, nullable=False),
+    sa.Column("final_page_fingerprint", sa.String(64)),
+    sa.Column("submitted", sa.Boolean),
+    sa.Column("confirmation", sa.JSON),
+    sa.Column("submission_mode", sa.String(32)),
     sa.Column("completed_at", sa.DateTime(timezone=True)),
+)
+
+approval_tokens_table = sa.Table(
+    "approval_tokens",
+    _metadata,
+    sa.Column("id", sa.String(36), primary_key=True),
+    sa.Column("application_id", sa.String(36), nullable=False),
+    sa.Column("browser_run_id", sa.String(36), nullable=False),
+    sa.Column("token_id", sa.String(64), nullable=False, unique=True),
+    sa.Column("binding_digest", sa.String(64), nullable=False),
+    sa.Column("resume_version", sa.Integer, nullable=False),
+    sa.Column("answer_set_version", sa.Integer, nullable=False),
+    sa.Column("final_page_fingerprint", sa.String(64), nullable=False),
+    sa.Column("consumed", sa.Boolean, nullable=False),
+    sa.Column("created_at", sa.DateTime(timezone=True)),
+    sa.Column("consumed_at", sa.DateTime(timezone=True)),
 )
 
 browser_run_steps_table = sa.Table(
@@ -310,6 +332,18 @@ async def persist_browser_run_result(
             completed_at=now,
         )
     )
+    await _persist_run_children(conn, run_id, steps, events, screenshots, now)
+
+
+async def _persist_run_children(
+    conn: AsyncConnection,
+    run_id: str,
+    steps: list[dict[str, object]],
+    events: list[dict[str, object]],
+    screenshots: list[dict[str, str]],
+    now: datetime,
+) -> None:
+    """Append the ordered step/event/screenshot child rows for a browser run."""
     for sequence, step in enumerate(steps):
         action = str(step.get("action", "unknown"))
         detail = {key: value for key, value in step.items() if key != "action"}
@@ -348,6 +382,112 @@ async def persist_browser_run_result(
                 created_at=now,
             )
         )
+
+
+class DbTokenStore:
+    """DB-backed single-use token store for the supervised runner.
+
+    ``consume`` atomically flips ``consumed`` from False to True for the matching
+    ``token_id`` + ``binding_digest``, returning True only on the first success.
+    A replay, a mismatched binding, or an unknown token all yield False.
+    """
+
+    def __init__(self, conn: AsyncConnection) -> None:
+        self._conn = conn
+
+    async def consume(self, token_id: str, binding_digest: str) -> bool:
+        result = await self._conn.execute(
+            approval_tokens_table.update()
+            .where(
+                approval_tokens_table.c.token_id == token_id,
+                approval_tokens_table.c.binding_digest == binding_digest,
+                approval_tokens_table.c.consumed.is_(False),
+            )
+            .values(consumed=True, consumed_at=datetime.now(UTC))
+        )
+        return bool(result.rowcount)
+
+
+class DbSubmissionGuard:
+    """Cross-run idempotency backed by the ``browser_runs.submitted`` flag."""
+
+    def __init__(self, conn: AsyncConnection) -> None:
+        self._conn = conn
+
+    async def is_submitted(self, application_id: str) -> bool:
+        result = await self._conn.execute(
+            sa.select(browser_runs_table.c.id)
+            .where(
+                browser_runs_table.c.application_id == application_id,
+                browser_runs_table.c.submitted.is_(True),
+            )
+            .limit(1)
+        )
+        return result.first() is not None
+
+    async def mark_submitted(self, application_id: str, evidence: dict[str, str]) -> None:
+        # The run row is updated by persist_supervised_run_result; nothing to do here.
+        return None
+
+
+@dataclass(frozen=True)
+class TokenBindingValues:
+    resume_version: int
+    answer_set_version: int
+    final_page_fingerprint: str
+    consumed: bool
+
+
+async def get_token_binding_values(
+    conn: AsyncConnection, token_id: str
+) -> TokenBindingValues | None:
+    """Read the immutable binding values the API signed for ``token_id``."""
+    result = await conn.execute(
+        sa.select(
+            approval_tokens_table.c.resume_version,
+            approval_tokens_table.c.answer_set_version,
+            approval_tokens_table.c.final_page_fingerprint,
+            approval_tokens_table.c.consumed,
+        ).where(approval_tokens_table.c.token_id == token_id)
+    )
+    row = result.first()
+    if row is None:
+        return None
+    return TokenBindingValues(
+        resume_version=int(row.resume_version),
+        answer_set_version=int(row.answer_set_version),
+        final_page_fingerprint=str(row.final_page_fingerprint),
+        consumed=bool(row.consumed),
+    )
+
+
+async def persist_supervised_run_result(
+    conn: AsyncConnection,
+    run_id: str,
+    *,
+    status: str,
+    submitted: bool,
+    final_page_fingerprint: str | None,
+    confirmation: dict[str, str] | None,
+    steps: list[dict[str, object]],
+    events: list[dict[str, object]],
+    screenshots: list[dict[str, str]],
+) -> None:
+    """Persist a supervised Workday run, including submission evidence."""
+    now = datetime.now(UTC)
+    await conn.execute(
+        browser_runs_table.update()
+        .where(browser_runs_table.c.id == run_id)
+        .values(
+            status=status,
+            stopped_before_submit=status in {"stopped_at_review", "paused"},
+            submitted=submitted,
+            final_page_fingerprint=final_page_fingerprint,
+            confirmation=confirmation,
+            completed_at=now,
+        )
+    )
+    await _persist_run_children(conn, run_id, steps, events, screenshots, now)
 
 
 # ---------------------------------------------------------------------------

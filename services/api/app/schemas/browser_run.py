@@ -78,6 +78,35 @@ class BrowserScreenshotSchema(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class ApprovalTokenRequest(BaseModel):
+    """Human approval of the exact Review page, authorising one Submit click."""
+
+    final_page_fingerprint: str = Field(min_length=1)
+    resume_version: int
+    confirm: bool
+
+    @field_validator("confirm")
+    @classmethod
+    def must_confirm(cls, value: bool) -> bool:
+        if not value:
+            raise ValueError("explicit confirmation is required to issue an approval token")
+        return value
+
+
+class ApprovalTokenSchema(BaseModel):
+    id: str
+    token: str
+    token_id: str
+    application_id: str
+    browser_run_id: str
+    resume_version: int
+    answer_set_version: int
+    final_page_fingerprint: str
+    binding_digest: str
+    consumed: bool
+    created_at: datetime | None = None
+
+
 class BrowserRunSchema(BaseModel):
     id: str
     application_id: str
@@ -86,6 +115,10 @@ class BrowserRunSchema(BaseModel):
     headless: bool
     adapter_name: str
     stopped_before_submit: bool
+    final_page_fingerprint: str | None = None
+    submitted: bool = False
+    confirmation: dict[str, Any] | None = None
+    submission_mode: str = "stop_before_submit"
     created_at: datetime | None = None
     completed_at: datetime | None = None
     steps: list[BrowserStepSchema] = Field(default_factory=list)

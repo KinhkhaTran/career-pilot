@@ -9,10 +9,68 @@ from app.state_machine.application import (
     TRANSITIONS,
     ApplicationStatus,
     StateMachineError,
+    SubmissionAuthorization,
     SubmissionBlockedError,
+    SubmissionNotAuthorizedError,
+    authorize_submission,
     can_transition,
     transition,
 )
+
+
+def _authorization() -> SubmissionAuthorization:
+    return SubmissionAuthorization(
+        application_id="app-1",
+        browser_run_id="run-1",
+        token_id="tok-1",
+        binding_digest="digest-abc",
+        final_page_fingerprint="fp-abc",
+    )
+
+
+class TestExplicitSubmissionGate:
+    """The token-bound gate is the ONLY producer of SUBMITTED (requirement 12-13)."""
+
+    def test_generic_transition_still_blocks_submitted_under_any_mode(self) -> None:
+        for mode in ("stop_before_submit", "allow_submit"):
+            with pytest.raises(SubmissionBlockedError):
+                transition(
+                    ApplicationStatus.APPROVED,
+                    ApplicationStatus.SUBMITTED,
+                    submission_mode=mode,
+                )
+
+    def test_authorize_requires_allow_submit_mode(self) -> None:
+        with pytest.raises(SubmissionBlockedError):
+            authorize_submission(
+                ApplicationStatus.APPROVED,
+                authorization=_authorization(),
+                submission_mode="stop_before_submit",
+            )
+
+    def test_authorize_requires_a_verified_token(self) -> None:
+        with pytest.raises(SubmissionNotAuthorizedError):
+            authorize_submission(
+                ApplicationStatus.APPROVED,
+                authorization=None,
+                submission_mode="allow_submit",
+            )
+
+    def test_authorize_only_from_approved(self) -> None:
+        with pytest.raises(StateMachineError):
+            authorize_submission(
+                ApplicationStatus.HUMAN_REVIEW,
+                authorization=_authorization(),
+                submission_mode="allow_submit",
+            )
+
+    def test_authorize_succeeds_with_mode_and_token(self) -> None:
+        result = authorize_submission(
+            ApplicationStatus.APPROVED,
+            authorization=_authorization(),
+            submission_mode="allow_submit",
+        )
+        assert result is ApplicationStatus.SUBMITTED
 
 
 class TestStopBeforeSubmitSafety:

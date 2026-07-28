@@ -12,8 +12,13 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://careerpilot:careerpilot@localhost:5432/careerpilot"
     # For tests, override to: "sqlite+aiosqlite:///./test.db"
     redis_url: str = "redis://localhost:6379/0"
-    # CRITICAL safety setting — must always be "stop_before_submit" in initial release
+    # CRITICAL safety setting — must always be "stop_before_submit" in initial release.
+    # Set to "allow_submit" ONLY to enable the explicitly authorized, token-gated
+    # submission path (see docs/adr/0008). Even then, a submit requires a verified
+    # one-time approval token bound to the exact application state.
     initial_submission_mode: Literal["stop_before_submit", "allow_submit"] = "stop_before_submit"
+    # HMAC secret used to sign one-time approval tokens. Empty disables issuance.
+    approval_signing_secret: str = ""
 
 
 settings = Settings()

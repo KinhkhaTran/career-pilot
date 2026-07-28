@@ -4,7 +4,9 @@ CareerPilot is a monorepo combining a React dashboard, FastAPI service, ARQ work
 
 ## System Overview
 
-CareerPilot helps a single candidate discover public job listings, prepare application packets, and review them before a human decides whether to proceed. It does NOT automatically submit applications in any release. The `INITIAL_SUBMISSION_MODE=stop_before_submit` environment variable is enforced at the state machine level and checked by CI.
+CareerPilot helps a single candidate discover public job listings, prepare application packets, and review them before a human decides whether to proceed. By default it stops before final submission: `INITIAL_SUBMISSION_MODE=stop_before_submit` is enforced at the state machine level and checked by CI, and the generic `transition()` unconditionally blocks `SUBMITTED` under every mode value.
+
+A single application may be submitted only through the explicitly authorized, token-gated path in [ADR 0008](adr/0008-token-gated-supervised-submission.md): the opt-in `allow_submit` mode **plus** a verified, single-use approval token bound to the exact résumé, answers, packet fingerprint, job snapshot, browser-run id, and final-page fingerprint. Configuration alone can never submit. Even then, a supervised human logs in, handles every CAPTCHA/MFA/identity/sensitive/attestation step, and approves the exact Review page before the runner clicks the employer's existing Submit control once.
 
 ## Component Map
 
@@ -238,7 +240,8 @@ A browser run is created only for an approved application and stores the exact p
 | Visible browser only | Headless requests are rejected; the worker requires an operator-provided page |
 | Only approved fields | API and worker allowlist non-sensitive fields and reject sensitive/unknown keys |
 | Auditable run | Steps, events, and screenshots are persisted in ordered tables |
-| No employer submission | Worker exposes no submit operation and ends at `stopped_before_submit` |
+| No employer submission (default) | The legacy worker exposes no submit operation and ends at `stopped_before_submit` |
+| Submission only when authorized | The Workday `SupervisedApplicationRunner` submits once only under `allow_submit` **and** a verified single-use approval token (ADR 0008); never solves CAPTCHA/MFA/identity |
 
 
 
@@ -251,3 +254,4 @@ A browser run is created only for an approved application and stores the exact p
 | [0005](adr/0005-deterministic-matching.md) | Deterministic Profile Matching | Accepted |
 | [0006](adr/0006-application-materials-review.md) | Truthful Application Materials and Human Review | Accepted |
 | [0007](adr/0007-approval-bound-visible-browser-worker.md) | Approval-Bound Visible Browser Worker | Accepted |
+| [0008](adr/0008-token-gated-supervised-submission.md) | Token-Gated Supervised Submission (Workday) | Accepted |
