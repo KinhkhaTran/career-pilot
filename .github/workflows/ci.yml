@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Frontend checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run build
+
+  python:
+    name: Python checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: latest
+      - run: uv run --project services/api --extra dev ruff check services/api
+      - run: uv run --project services/worker --extra dev ruff check services/worker
+      - run: uv run --project services/api --extra dev mypy services/api/app
+      - run: uv run --project services/worker --extra dev mypy services/worker/app
+      - run: uv run --project services/api --extra dev pytest services/api/tests
+      - run: uv run --project services/worker --extra dev pytest services/worker/tests
+
+  safety:
+    name: Safety scans
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan source for prohibited automation
+        shell: bash
+        run: |
+          if grep -RInE 'captcha_solve|bypass_verification|proxy_rotation|inbox_code_retrieval|auto_submit|credential_harvest' \
+            services/api/app services/worker/app apps packages db --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=.venv; then
+            echo 'Prohibited automation pattern found'
+            exit 1
+          fi
+      - name: Scan for credential material
+        shell: bash
+        run: |
+          if grep -RInE '(sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{20,}|BEGIN (RSA|OPENSSH|EC) PRIVATE KEY|AKIA[0-9A-Z]{16})' \
+            services/api/app services/worker/app apps packages db --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=.venv; then
+            echo 'Credential-like material found'
+            exit 1
+          fi
