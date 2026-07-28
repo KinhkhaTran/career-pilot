@@ -4,6 +4,21 @@ CareerPilot is a clean-room, human-reviewed AI job discovery and assisted-applic
 
 > **Initial release boundary:** Always stops before final submission. No CAPTCHA solving, no identity-verification bypass, no job-site password storage, no inbox-code retrieval, no unattended submission.
 
+## Phase 4 — Application materials
+
+Phase 4 adds a complete, review-first materials vertical slice:
+
+| Feature | Status |
+|---------|--------|
+| Truthful résumé tailoring from profile claims only | ✅ |
+| Versioned material storage with unified diffs | ✅ |
+| Deterministic packet fingerprints bound to profile, materials, answers, and job snapshot | ✅ |
+| Reusable, versioned answer library | ✅ |
+| Human review gate before approval | ✅ |
+| Dashboard material and diff view | ✅ |
+
+Generate a packet with `POST /api/v1/applications/{id}/materials/generate`, inspect it with `GET /api/v1/applications/{id}/materials`, and approve only after review with `POST /api/v1/applications/{id}/review`. The approval path still cannot submit an application; the existing state machine enforces the stop-before-submit boundary.
+
 ## Phase 3 — Matching
 
 Phase 3 adds deterministic, explainable matching between normalized jobs and selected candidate profile versions.

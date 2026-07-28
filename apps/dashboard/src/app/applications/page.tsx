@@ -42,8 +42,9 @@ export default async function ApplicationsPage(): Promise<JSX.Element> {
 
       <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3">
         <p className="text-xs text-amber-800">
-          <strong>Initial release:</strong> All applications stop at &ldquo;Pending Authorization&rdquo; before
-          submission. Final submission requires explicit human authorization in a future release.
+          <strong>Initial release:</strong> All applications stop at &ldquo;Pending
+          Authorization&rdquo; before submission. Final submission requires explicit human
+          authorization in a future release.
         </p>
       </div>
 
@@ -88,7 +89,9 @@ export default async function ApplicationsPage(): Promise<JSX.Element> {
               {applications.map((app) => (
                 <tr key={app.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {app.id.slice(0, 8)}&hellip;
+                    <a href={`/applications/${app.id}`} className="text-blue-700 hover:underline">
+                      {app.id.slice(0, 8)}&hellip;
+                    </a>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span

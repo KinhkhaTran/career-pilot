@@ -35,10 +35,10 @@ export interface ApplicationEvent {
 export interface PacketFingerprint {
   profileVersion: number;
   resumeVersion: number;
-  answerVersions: Record<string, number>; // questionId → version
+  coverLetterVersion: number;
+  answerVersions: Record<string, number>;
   jobSnapshotHash: string;
   packetHash: string;
-  generatedAt: string; // ISO 8601
 }
 
 export interface Application {

@@ -26,11 +26,11 @@ class PacketFingerprintSchema(BaseModel):
     """Captures the exact approved versions that constitute a submission packet."""
 
     profile_version: int
-    resume_version: str | None = None
-    cover_letter_version: str | None = None
-    answer_versions: dict[str, str] = Field(default_factory=dict)
+    resume_version: int | None = None
+    cover_letter_version: int | None = None
+    answer_versions: dict[str, int] = Field(default_factory=dict)
     job_snapshot_hash: str
-    fingerprint_hash: str  # SHA-256 of all of the above
+    packet_hash: str
 
 
 class ApplicationSchema(BaseModel):

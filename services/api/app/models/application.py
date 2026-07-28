@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -31,6 +31,9 @@ class Application(Base):
         nullable=False,
         index=True,
     )
+    profile_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    job_snapshot_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    job_snapshot: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
 
     # Current state — managed exclusively via the state machine
     status: Mapped[str] = mapped_column(String(64), nullable=False, default="draft")

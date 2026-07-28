@@ -104,14 +104,21 @@ typecheck: ## Run TypeScript typechecks
 docker-validate: ## Validate Docker Compose configuration
 	docker compose -f infra/docker-compose.yml config --quiet
 
-secret-scan: ## Scan for secrets in tracked files
+secret-scan: ## Scan for secrets in tracked and untracked non-ignored files
 	@echo "==> Scanning for secrets..."
-	@git diff --cached --name-only | xargs grep -lE "(password|secret|token|api_key)\s*=\s*['\"][^'\"]{8,}" 2>/dev/null && echo "WARNING: Possible secrets found!" || echo "No secrets detected in staged files"
-	@grep -rn "INITIAL_SUBMISSION_MODE=submit" . --include="*.py" --include="*.ts" --include="*.env" 2>/dev/null && echo "BLOCKED: submission mode not set to stop_before_submit" || echo "OK: submission mode check passed"
+	@files="$$(git ls-files -co --exclude-standard | grep -vE '(^|/)(tests?|fixtures?)/')"; \
+	if printf '%s\n' "$$files" | xargs -r grep -lE "(password|secret|token|api_key)\s*=\s*['\"][^'\"]{8,}" 2>/dev/null; then \
+		echo "BLOCKED: possible secrets found"; exit 1; \
+	else echo "No secrets detected"; fi
+	@if grep -RIn "INITIAL_SUBMISSION_MODE=submit" services apps packages db --include="*.py" --include="*.ts" --include="*.tsx" --include="*.env" 2>/dev/null; then \
+		echo "BLOCKED: submission mode not set to stop_before_submit"; exit 1; \
+	else echo "OK: submission mode check passed"; fi
 
-check-no-submit-bypass: ## Verify no submission bypass is present in source
+check-no-submit-bypass: ## Verify no submission bypass is present in production source
 	@echo "==> Checking for prohibited automation..."
-	@grep -rn "captcha\|bypass_verification\|proxy_rotation\|inbox_code\|auto_submit" services/ --include="*.py" 2>/dev/null && echo "BLOCKED: prohibited automation found" || echo "OK: no prohibited automation"
+	@if grep -RInE "captcha(_solve)?|bypass_verification|proxy_rotation|inbox_code(_retrieval)?|auto_submit" services/api/app services/worker/app apps/dashboard/src packages --include="*.py" --include="*.ts" --include="*.tsx" 2>/dev/null; then \
+		echo "BLOCKED: prohibited automation found"; exit 1; \
+	else echo "OK: no prohibited automation"; fi
 
 ci: lint typecheck test docker-validate secret-scan check-no-submit-bypass ## Full CI check (mirrors GitHub Actions)
 

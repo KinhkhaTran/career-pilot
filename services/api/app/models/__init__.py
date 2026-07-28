@@ -3,6 +3,7 @@ from .base import Base
 from .discovery_run import DiscoveryRun, DiscoveryRunEvent
 from .job import Job
 from .match import Match
+from .material import AnswerLibraryEntry, ApplicationMaterial
 from .profile import CandidateProfile
 
 __all__ = [
@@ -14,4 +15,6 @@ __all__ = [
     "DiscoveryRun",
     "DiscoveryRunEvent",
     "Match",
+    "AnswerLibraryEntry",
+    "ApplicationMaterial",
 ]
