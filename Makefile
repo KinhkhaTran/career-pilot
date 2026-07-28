@@ -1,21 +1,43 @@
-.PHONY: help setup dev test lint typecheck migrate seed discover docker-up docker-down docker-logs clean
+.PHONY: help setup venv build-packages dev dev-api dev-worker dev-dashboard test test-js test-python test-state-machine test-discovery discover lint lint-js lint-python typecheck migrate seed docker-up docker-down docker-logs docker-validate secret-scan check-no-submit-bypass ci clean
+
+# Load local environment (DATABASE_URL, REDIS_URL, ...) so Python targets and the
+# natively-run API/worker inherit them. Real shell env vars still take precedence.
+ifneq (,$(wildcard .env))
+include .env
+export
+endif
 
 PYTHON_SERVICES = services/api services/worker
 NPM_CMD = npm
 
+# Services require Python >=3.12. The repo venv is created from this interpreter;
+# override on the command line if yours is named differently (e.g. BOOTSTRAP_PYTHON=python3.12).
+BOOTSTRAP_PYTHON ?= python3.13
+VENV = .venv
+VENV_BIN = $(VENV)/bin
+PYTHON = $(VENV_BIN)/python
+PIP = $(VENV_BIN)/pip
+
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-setup: ## One-time local setup: install deps for all workspaces
-	$(NPM_CMD) install
-	@for svc in $(PYTHON_SERVICES); do \
-		echo "==> Installing $$svc"; \
-		cd $$svc && pip install -e ".[dev]" && cd ../..; \
-	done
-	@echo "==> Setup complete. Copy .env.example to .env and adjust values."
+$(VENV): ## Create the Python virtualenv (from $(BOOTSTRAP_PYTHON))
+	$(BOOTSTRAP_PYTHON) -m venv $(VENV)
+	$(PIP) install --upgrade pip
 
-docker-up: ## Start PostgreSQL, Redis, and mock-ats via Docker Compose
-	docker compose -f infra/docker-compose.yml up -d
+venv: $(VENV) ## Create the Python virtualenv if missing
+
+setup: $(VENV) ## One-time local setup: install all deps and build shared TS packages
+	$(NPM_CMD) install
+	$(PIP) install -e "services/api[dev]" -e "services/worker[dev]"
+	$(MAKE) build-packages
+	@echo "==> Setup complete. Copy .env.example to .env and adjust values if you haven't already."
+
+build-packages: ## Build shared TS packages (contracts, ui) — required before the dashboard can resolve them
+	$(NPM_CMD) run build -w @career-pilot/contracts -w @career-pilot/ui
+
+docker-up: ## Start PostgreSQL and Redis via Docker Compose (data stores only; run the API/worker natively)
+	docker compose -f infra/docker-compose.yml up -d postgres redis
 
 docker-down: ## Stop Docker Compose services
 	docker compose -f infra/docker-compose.yml down
@@ -23,26 +45,26 @@ docker-down: ## Stop Docker Compose services
 docker-logs: ## Tail Docker Compose logs
 	docker compose -f infra/docker-compose.yml logs -f
 
-migrate: ## Run database migrations (requires DB running)
-	cd db && alembic upgrade head
+migrate: ## Run database migrations (requires DB running). Runs from repo root; alembic paths are root-relative.
+	$(VENV_BIN)/alembic -c db/alembic.ini upgrade head
 
 seed: ## Load fake seed data (requires DB running and migrated)
-	python db/seeds/run_seeds.py
+	$(PYTHON) db/seeds/run_seeds.py
 
-dev-api: ## Start the FastAPI service in development mode
-	cd services/api && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+dev-api: ## Start the FastAPI service in development mode (reload)
+	cd services/api && ../../$(VENV_BIN)/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 dev-worker: ## Start the ARQ worker in development mode
-	cd services/worker && python -m app.main
+	cd services/worker && ../../$(PYTHON) -m app.main
 
 dev-dashboard: ## Start the Next.js dashboard in development mode
-	cd apps/dashboard && npm run dev
+	cd apps/dashboard && $(NPM_CMD) run dev
 
-dev: docker-up ## Start all services (Docker deps + API + worker + dashboard)
-	@echo "==> Starting all services..."
-	@echo "Dashboard: http://localhost:3000"
-	@echo "API:       http://localhost:8000"
-	@echo "API docs:  http://localhost:8000/docs"
+dev: docker-up ## Start Docker deps and print where each service will run
+	@echo "==> Docker deps up. Start services in separate terminals:"
+	@echo "    make dev-api        # http://localhost:8000  (docs at /docs)"
+	@echo "    make dev-dashboard  # http://localhost:3000"
+	@echo "    make dev-worker"
 
 test: test-js test-python ## Run all tests
 
@@ -52,19 +74,19 @@ test-js: ## Run JavaScript/TypeScript tests
 test-python: ## Run Python tests
 	@for svc in $(PYTHON_SERVICES); do \
 		echo "==> Testing $$svc"; \
-		cd $$svc && python -m pytest tests/ -v && cd ../..; \
+		(cd $$svc && ../../$(PYTHON) -m pytest tests/ -v) || exit 1; \
 	done
 
 test-state-machine: ## Run state machine safety tests only
-	cd services/api && python -m pytest tests/test_state_machine.py -v
+	cd services/api && ../../$(PYTHON) -m pytest tests/test_state_machine.py -v
 
 test-discovery: ## Run discovery tests only (adapter + normalizer + API)
-	cd services/worker && python -m pytest tests/test_normalizer.py tests/test_adapters.py tests/test_discovery.py -v
-	cd services/api && python -m pytest tests/test_discovery.py -v
+	cd services/worker && ../../$(PYTHON) -m pytest tests/test_normalizer.py tests/test_adapters.py tests/test_discovery.py -v
+	cd services/api && ../../$(PYTHON) -m pytest tests/test_discovery.py -v
 
 discover: ## Enqueue a discovery run (args: SOURCE=greenhouse COMPANY_ID=acme)
 	@echo "==> Enqueuing discovery run: source=$(SOURCE) company_id=$(COMPANY_ID)"
-	@cd services/worker && python -m app.cli discover "$(SOURCE)" "$(COMPANY_ID)"
+	@cd services/worker && ../../$(PYTHON) -m app.cli discover "$(SOURCE)" "$(COMPANY_ID)"
 
 lint: lint-js lint-python ## Run all linters
 
@@ -73,8 +95,8 @@ lint-js: ## Run ESLint and Prettier check
 	npx prettier --check "**/*.{ts,tsx}" --ignore-path .gitignore
 
 lint-python: ## Run ruff and mypy
-	ruff check services/ --config pyproject.toml
-	mypy services/ --config-file pyproject.toml
+	$(VENV_BIN)/ruff check services/ --config pyproject.toml
+	$(VENV_BIN)/mypy services/ --config-file pyproject.toml
 
 typecheck: ## Run TypeScript typechecks
 	$(NPM_CMD) run typecheck --workspaces --if-present
