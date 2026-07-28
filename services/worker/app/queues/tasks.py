@@ -13,6 +13,8 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 
+from .browser_runs import assisted_application_task
+
 logger = logging.getLogger(__name__)
 
 
@@ -108,7 +110,7 @@ class WorkerSettings:
     """ARQ worker configuration."""
 
     redis_settings = None  # set dynamically in main.py
-    functions = [ping_task, discover_jobs_task]
+    functions = [ping_task, discover_jobs_task, assisted_application_task]
     on_startup = startup
     on_shutdown = shutdown
     max_jobs = 10

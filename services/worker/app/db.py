@@ -82,6 +82,49 @@ discovery_run_events_table = sa.Table(
     sa.Column("created_at", sa.DateTime(timezone=True)),
 )
 
+browser_runs_table = sa.Table(
+    "browser_runs",
+    _metadata,
+    sa.Column("id", sa.String(36), primary_key=True),
+    sa.Column("status", sa.String(64), nullable=False),
+    sa.Column("stopped_before_submit", sa.Boolean, nullable=False),
+    sa.Column("completed_at", sa.DateTime(timezone=True)),
+)
+
+browser_run_steps_table = sa.Table(
+    "browser_run_steps",
+    _metadata,
+    sa.Column("id", sa.String(36), primary_key=True),
+    sa.Column("run_id", sa.String(36), nullable=False),
+    sa.Column("sequence", sa.Integer, nullable=False),
+    sa.Column("action", sa.String(64), nullable=False),
+    sa.Column("detail", sa.JSON, nullable=False),
+    sa.Column("created_at", sa.DateTime(timezone=True)),
+)
+
+browser_run_events_table = sa.Table(
+    "browser_run_events",
+    _metadata,
+    sa.Column("id", sa.String(36), primary_key=True),
+    sa.Column("run_id", sa.String(36), nullable=False),
+    sa.Column("sequence", sa.Integer, nullable=False),
+    sa.Column("event_type", sa.String(100), nullable=False),
+    sa.Column("detail", sa.JSON, nullable=False),
+    sa.Column("created_at", sa.DateTime(timezone=True)),
+)
+
+browser_screenshots_table = sa.Table(
+    "browser_screenshots",
+    _metadata,
+    sa.Column("id", sa.String(36), primary_key=True),
+    sa.Column("run_id", sa.String(36), nullable=False),
+    sa.Column("sequence", sa.Integer, nullable=False),
+    sa.Column("label", sa.String(100), nullable=False),
+    sa.Column("path", sa.Text, nullable=False),
+    sa.Column("sha256", sa.String(64)),
+    sa.Column("created_at", sa.DateTime(timezone=True)),
+)
+
 # ---------------------------------------------------------------------------
 # Engine factory
 # ---------------------------------------------------------------------------
@@ -209,6 +252,67 @@ async def append_discovery_event(
             created_at=datetime.now(UTC),
         )
     )
+
+
+async def persist_browser_run_result(
+    conn: AsyncConnection,
+    run_id: str,
+    *,
+    status: str,
+    stopped_before_submit: bool,
+    steps: list[dict[str, object]],
+    events: list[dict[str, object]],
+    screenshots: list[dict[str, str]],
+) -> None:
+    """Persist an assisted-run result returned by the supervised browser worker."""
+    now = datetime.now(UTC)
+    await conn.execute(
+        browser_runs_table.update()
+        .where(browser_runs_table.c.id == run_id)
+        .values(
+            status=status,
+            stopped_before_submit=stopped_before_submit,
+            completed_at=now,
+        )
+    )
+    for sequence, step in enumerate(steps):
+        action = str(step.get("action", "unknown"))
+        detail = {key: value for key, value in step.items() if key != "action"}
+        await conn.execute(
+            browser_run_steps_table.insert().values(
+                id=str(uuid.uuid4()),
+                run_id=run_id,
+                sequence=sequence,
+                action=action,
+                detail=detail,
+                created_at=now,
+            )
+        )
+    for sequence, event in enumerate(events):
+        event_type = str(event.get("type", "unknown"))
+        detail = {key: value for key, value in event.items() if key != "type"}
+        await conn.execute(
+            browser_run_events_table.insert().values(
+                id=str(uuid.uuid4()),
+                run_id=run_id,
+                sequence=sequence,
+                event_type=event_type,
+                detail=detail,
+                created_at=now,
+            )
+        )
+    for sequence, screenshot in enumerate(screenshots):
+        await conn.execute(
+            browser_screenshots_table.insert().values(
+                id=str(uuid.uuid4()),
+                run_id=run_id,
+                sequence=sequence,
+                label=screenshot["label"],
+                path=screenshot["path"],
+                sha256=None,
+                created_at=now,
+            )
+        )
 
 
 # ---------------------------------------------------------------------------

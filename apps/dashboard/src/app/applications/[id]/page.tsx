@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import type { ApplicationMaterial } from "@career-pilot/contracts";
-import { camelizeKeys } from "../../../lib/api";
+import type { ApplicationMaterial, BrowserRun } from "@career-pilot/contracts";
+import { camelizeKeys, getBrowserRuns } from "../../../lib/api";
 
 export const metadata: Metadata = { title: "Application materials" };
 const API_BASE = process.env["NEXT_PUBLIC_API_BASE_URL"] ?? "http://localhost:8000";
@@ -23,6 +23,7 @@ export default async function ApplicationMaterialsPage({
   params: { id: string };
 }): Promise<JSX.Element> {
   const materials = await getMaterials(params.id);
+  const runs: BrowserRun[] = await getBrowserRuns(params.id).catch(() => []);
   return (
     <div>
       <div className="mb-6">
@@ -72,6 +73,34 @@ export default async function ApplicationMaterialsPage({
           ))}
         </div>
       )}
+      <section className="mt-8 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+        <h2 className="font-semibold text-gray-900">Assisted browser runs</h2>
+        <p className="mt-1 text-xs text-amber-700">
+          Visible/headful only. Every run stops before submit.
+        </p>
+        {runs.length === 0 ? (
+          <p className="mt-4 text-sm text-gray-500">No browser runs yet.</p>
+        ) : (
+          <div className="mt-4 space-y-3">
+            {runs.map((run) => (
+              <details key={run.id} className="rounded border p-3">
+                <summary className="cursor-pointer text-sm font-medium">
+                  {run.status} · {run.id}
+                </summary>
+                <p className="mt-2 text-xs text-gray-600">
+                  {run.stoppedBeforeSubmit ? "Stopped before submit" : "Awaiting worker"} ·{" "}
+                  {run.steps.length} steps · {run.screenshots.length} screenshots
+                </p>
+                <ul className="mt-2 list-disc pl-5 text-xs text-gray-600">
+                  {run.steps.map((step) => (
+                    <li key={step.id}>{step.action}</li>
+                  ))}
+                </ul>
+              </details>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

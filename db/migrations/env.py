@@ -18,7 +18,7 @@ sys.path.insert(
 )
 
 from app.models.base import Base
-from app.models import profile, job, application, discovery_run, match, material  # noqa: F401 — register with Base
+from app.models import profile, job, application, browser_run, discovery_run, match, material  # noqa: F401 — register with Base
 
 config = context.config
 if config.config_file_name is not None:

@@ -203,7 +203,44 @@ graph TD
     API --> Dashboard[Next.js Dashboard]
 ```
 
-## ADR Index
+## Phase 5 Assisted Application Boundary
+
+The API creates a queued `BrowserRun` only after checking `approved`, exact `packet_fingerprint`, and immutable inputs. A supervised ARQ task receives a visible/headful Playwright-compatible page and a clean-room ATS form adapter. It can `goto`, fill allowlisted fields, and screenshot; it cannot submit. Steps, events, and screenshot metadata are append-only child records. Successful runs end at `stopped_before_submit`; no browser-run path can reach `submitted`.
+
+```mermaid
+sequenceDiagram
+    Human->>API: POST /applications/{id}/browser-runs
+    API->>DB: verify approval + exact fingerprints
+    API-->>Human: queued BrowserRun
+    Worker->>ATSFormAdapter: open public form
+    Worker->>BrowserPage: fill approved fields only
+    Worker->>DB: append screenshots/steps/events
+    Worker-->>DB: stopped_before_submit
+```
+
+## Phase 5 Browser Run Data Model
+
+```mermaid
+erDiagram
+    APPLICATIONS ||--o{ BROWSER_RUNS : "assisted run"
+    BROWSER_RUNS ||--o{ BROWSER_RUN_STEPS : "ordered steps"
+    BROWSER_RUNS ||--o{ BROWSER_RUN_EVENTS : "append-only events"
+    BROWSER_RUNS ||--o{ BROWSER_SCREENSHOTS : "visual audit"
+```
+
+A browser run is created only for an approved application and stores the exact packet fingerprint, immutable inputs, approved fields, visible/headful setting, adapter name, ordered steps/events, and screenshot metadata. The worker has no submit operation; every successful flow ends at `stopped_before_submit`.
+
+## Assisted Application Safety Boundary
+
+| Rule | Enforcement |
+|---|---|
+| Exact approved packet required | API compares request fingerprint and immutable inputs with the application |
+| Visible browser only | Headless requests are rejected; the worker requires an operator-provided page |
+| Only approved fields | API and worker allowlist non-sensitive fields and reject sensitive/unknown keys |
+| Auditable run | Steps, events, and screenshots are persisted in ordered tables |
+| No employer submission | Worker exposes no submit operation and ends at `stopped_before_submit` |
+
+
 
 | ADR | Title | Status |
 |---|---|---|
@@ -213,3 +250,4 @@ graph TD
 | [0004](adr/0004-job-discovery-adapters.md) | Public ATS Adapters and Generic Crawler Boundary | Accepted |
 | [0005](adr/0005-deterministic-matching.md) | Deterministic Profile Matching | Accepted |
 | [0006](adr/0006-application-materials-review.md) | Truthful Application Materials and Human Review | Accepted |
+| [0007](adr/0007-approval-bound-visible-browser-worker.md) | Approval-Bound Visible Browser Worker | Accepted |

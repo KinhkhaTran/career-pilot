@@ -4,6 +4,20 @@ CareerPilot is a clean-room, human-reviewed AI job discovery and assisted-applic
 
 > **Initial release boundary:** Always stops before final submission. No CAPTCHA solving, no identity-verification bypass, no job-site password storage, no inbox-code retrieval, no unattended submission.
 
+## Phase 5 — Assisted application
+
+Phase 5 provides an approval-bound browser-worker boundary, not employer automation. A run can be started only for an `approved` application with an exact packet fingerprint and immutable profile/job inputs. The worker uses a Playwright-compatible page interface in visible/headful mode, fills only explicitly allowlisted packet fields, captures screenshots and append-only steps/events, and terminates in `stopped_before_submit`. It has no submit action, credentials, CAPTCHA, inbox-code, identity-verification, or proxy facilities. Start/read endpoints are `POST/GET /api/v1/applications/{id}/browser-runs`; deterministic Greenhouse-like mock adapters and fake pages keep tests offline.
+
+| Feature | Status |
+|---------|--------|
+| Approval and packet/input fingerprint binding | ✅ |
+| Visible Playwright-compatible worker boundary | ✅ |
+| Allowlisted non-sensitive field filling | ✅ |
+| Screenshot, step, and event audit persistence | ✅ |
+| Stop-before-submit state transition | ✅ |
+| Dashboard run status and audit view | ✅ |
+| Employer writes or final submission | 🚫 permanently blocked in initial release |
+
 ## Phase 4 — Application materials
 
 Phase 4 adds a complete, review-first materials vertical slice:
