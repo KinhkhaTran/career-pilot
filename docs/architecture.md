@@ -211,3 +211,4 @@ graph TD
 | [0002](adr/0002-application-state-machine.md) | Immutable Append-Only Application Event Log | Accepted |
 | [0003](adr/0003-monorepo-structure.md) | Monorepo with Turborepo and Isolated Python Services | Accepted |
 | [0004](adr/0004-job-discovery-adapters.md) | Public ATS Adapters and Generic Crawler Boundary | Accepted |
+| [0005](adr/0005-deterministic-matching.md) | Deterministic Profile Matching | Accepted |

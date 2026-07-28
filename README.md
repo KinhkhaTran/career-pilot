@@ -4,6 +4,29 @@ CareerPilot is a clean-room, human-reviewed AI job discovery and assisted-applic
 
 > **Initial release boundary:** Always stops before final submission. No CAPTCHA solving, no identity-verification bypass, no job-site password storage, no inbox-code retrieval, no unattended submission.
 
+## Phase 3 — Matching
+
+Phase 3 adds deterministic, explainable matching between normalized jobs and selected candidate profile versions.
+
+| Feature | Status |
+|---------|--------|
+| Hard eligibility constraints (remote, location, employment type) | ✅ |
+| Weighted normalized skill/title/experience/education scoring | ✅ |
+| Persisted fingerprinted match results with idempotent upsert | ✅ |
+| Match read API and safe refresh API | ✅ |
+| Shared TypeScript match contract and dashboard view | ✅ |
+| Application state and submission path unchanged | ✅ |
+
+Refresh matches without application side effects:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/matches/refresh \\
+  -H 'content-type: application/json' \\
+  -d '{"profile_id":"<candidate-id>","profile_version":1,"job_ids":["<job-id>"],"constraints":{"remote_only":true}}'
+```
+
+Read results with `GET /api/v1/matches` or open the dashboard Matches view. A changed job snapshot, profile version, or constraint input produces a new fingerprinted result.
+
 ## Phase 2 — Job Discovery
 
 Phase 2 adds public read-only job discovery from Greenhouse, Lever, and Ashby.
@@ -68,6 +91,10 @@ make dev-dashboard # Next.js → http://localhost:3000
 ```bash
 make test                 # All tests
 make test-state-machine   # State machine safety tests only
+cd services/api && uv run pytest tests/test_matching.py tests/test_matches_api.py
+npm run typecheck --workspaces --if-present
+npm run build --workspace @career-pilot/dashboard
+cd db && uv run alembic check
 ```
 
 Key safety test: `services/api/tests/test_state_machine.py` proves that `SUBMITTED` is unreachable from any state when `INITIAL_SUBMISSION_MODE=stop_before_submit`.

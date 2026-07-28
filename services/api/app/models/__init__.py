@@ -2,6 +2,7 @@ from .application import Application, ApplicationEvent
 from .base import Base
 from .discovery_run import DiscoveryRun, DiscoveryRunEvent
 from .job import Job
+from .match import Match
 from .profile import CandidateProfile
 
 __all__ = [
@@ -12,4 +13,5 @@ __all__ = [
     "ApplicationEvent",
     "DiscoveryRun",
     "DiscoveryRunEvent",
+    "Match",
 ]
