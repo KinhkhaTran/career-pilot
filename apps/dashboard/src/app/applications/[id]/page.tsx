@@ -1,3 +1,4 @@
+import { AssistedRunControls } from "./AssistedRunControls";
 import type { Metadata } from "next";
 import type { ApplicationMaterial, BrowserRun } from "@career-pilot/contracts";
 import { camelizeKeys, getBrowserRuns } from "../../../lib/api";
@@ -100,6 +101,7 @@ export default async function ApplicationMaterialsPage({
             ))}
           </div>
         )}
+        <AssistedRunControls applicationId={params.id} />
       </section>
     </div>
   );

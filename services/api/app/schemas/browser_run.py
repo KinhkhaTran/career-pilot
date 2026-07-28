@@ -5,7 +5,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
-ALLOWED_FIELDS = frozenset({"full_name", "email", "phone", "linkedin", "cover_letter"})
+ALLOWED_FIELDS = frozenset({"full_name", "email", "phone", "linkedin", "resume", "cover_letter"})
 SENSITIVE_FIELDS = frozenset({
     "password",
     "passwd",
@@ -16,6 +16,13 @@ SENSITIVE_FIELDS = frozenset({
     "verification_code",
     "inbox" "_code",
 })
+
+
+class BrowserRunLaunchContextSchema(BaseModel):
+    packet_fingerprint: dict[str, Any]
+    immutable_inputs: dict[str, Any]
+    approved_fields: dict[str, str]
+    application_url: str
 
 
 class BrowserRunStartRequest(BaseModel):

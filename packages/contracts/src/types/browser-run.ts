@@ -40,7 +40,14 @@ export interface BrowserRun {
   screenshots: BrowserScreenshot[];
 }
 
-export interface BrowserRunStartRequest {
+export interface BrowserRunLaunchContext {
+  packetFingerprint: Record<string, unknown>;
+  immutableInputs: Record<string, unknown>;
+  approvedFields: Record<string, string>;
+  applicationUrl: string;
+}
+
+export interface BrowserRunStartRequest extends BrowserRunLaunchContext {
   packetFingerprint: Record<string, unknown>;
   immutableInputs: Record<string, unknown>;
   approvedFields: Record<string, string>;

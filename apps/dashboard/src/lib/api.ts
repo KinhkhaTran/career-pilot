@@ -16,11 +16,24 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
  * `@career-pilot/contracts` types are camelCase. Recursively rewrite object
  * keys so wire payloads conform to the contracts. Values are left untouched.
  */
-import type { BrowserRun, BrowserRunStartRequest } from "@career-pilot/contracts";
+import type {
+  BrowserRun,
+  BrowserRunLaunchContext,
+  BrowserRunStartRequest,
+} from "@career-pilot/contracts";
 
 export async function getBrowserRuns(applicationId: string): Promise<BrowserRun[]> {
   const payload = await apiFetch<unknown>(`/api/v1/applications/${applicationId}/browser-runs`);
   return camelizeKeys<BrowserRun[]>(payload);
+}
+
+export async function getBrowserRunLaunchContext(
+  applicationId: string
+): Promise<BrowserRunLaunchContext> {
+  const payload = await apiFetch<unknown>(
+    `/api/v1/applications/${applicationId}/browser-runs/launch-context`
+  );
+  return camelizeKeys<BrowserRunLaunchContext>(payload);
 }
 
 export async function startBrowserRun(

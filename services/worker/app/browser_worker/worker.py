@@ -8,7 +8,7 @@ from typing import Any
 
 from .adapters import ATSFormAdapter, BrowserPage
 
-ALLOWED_FIELDS = frozenset({"full_name", "email", "phone", "linkedin", "cover_letter"})
+ALLOWED_FIELDS = frozenset({"full_name", "email", "phone", "linkedin", "resume", "cover_letter"})
 SENSITIVE_FIELDS = frozenset({"password", "passwd", "cap" "tcha", "ssn", "social_security", "identity_document", "verification_code", "inbox" "_code"})
 
 
