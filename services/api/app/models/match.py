@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     String,
     UniqueConstraint,
     func,
@@ -38,4 +39,6 @@ class Match(Base):
             "job_id", "candidate_profile_id", "profile_version", "input_fingerprint",
             name="uq_match_input",
         ),
+        Index("ix_matches_candidate_profile_id", "candidate_profile_id"),
+        Index("ix_matches_score", "score"),
     )

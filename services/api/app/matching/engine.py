@@ -91,7 +91,7 @@ def evaluate_match(
     title_tokens = _tokens(job.get("title"))
     experience_titles = _nested_strings(profile.get("work_experience"), ("title", "description"))
     experience_tokens = set().union(*(_tokens(item) for item in experience_titles)) if experience_titles else set()
-    title_overlap = _overlap(title_tokens, experience_tokens | profile_skill_tokens)
+    title_overlap = _overlap(title_tokens, profile_skill_tokens)
     title_ratio = len(title_overlap) / len(title_tokens) if title_tokens else 0.0
 
     requirement_tokens = set().union(*(_tokens(item) for item in _strings(job.get("requirements"))))
@@ -100,7 +100,8 @@ def evaluate_match(
     education_overlap = _overlap(requirement_tokens, education_tokens)
     education_ratio = min(1.0, len(education_overlap) / max(1, len(requirement_tokens)))
 
-    experience_ratio = min(1.0, len(title_overlap) / max(1, len(title_tokens)))
+    experience_overlap = _overlap(title_tokens, experience_tokens)
+    experience_ratio = min(1.0, len(experience_overlap) / max(1, len(title_tokens)))
     score = round((skill_ratio * 0.5 + title_ratio * 0.2 + experience_ratio * 0.2 + education_ratio * 0.1) * 100, 2)
     eligible = not reasons
     if not eligible:
@@ -113,7 +114,7 @@ def evaluate_match(
         explanation={
             "skills": {"matched": matched_skills, "required": sorted(job_skill_tokens), "ratio": round(skill_ratio, 4)},
             "title": {"overlap": title_overlap, "job_tokens": sorted(title_tokens), "ratio": round(title_ratio, 4)},
-            "experience": {"overlap": title_overlap, "ratio": round(experience_ratio, 4)},
+            "experience": {"overlap": experience_overlap, "ratio": round(experience_ratio, 4)},
             "education": {"matched": education_overlap, "ratio": round(education_ratio, 4)},
             "weights": {"skills": 0.5, "title": 0.2, "experience": 0.2, "education": 0.1},
         },

@@ -38,7 +38,41 @@ def test_positive_match_has_deterministic_score_and_explanation() -> None:
     assert first.score > 0
     assert first.model_dump() == second.model_dump()
     assert first.explanation["skills"]["matched"] == ["fastapi", "python"]
-    assert first.explanation["title"]["overlap"] == ["engineer", "python"]
+    assert first.explanation["title"]["overlap"] == ["python"]
+    assert first.explanation["experience"]["overlap"] == ["engineer", "python"]
+
+
+def test_title_and_experience_evidence_are_scored_separately() -> None:
+    job = {"title": "Python Engineer", "requirements": [], "technologies": []}
+    profile = {"skills": ["Python"], "work_experience": []}
+
+    result = evaluate_match(job, profile)
+
+    assert result.explanation["title"]["overlap"] == ["python"]
+    assert result.explanation["experience"]["overlap"] == []
+    assert result.explanation["experience"]["ratio"] == 0.0
+
+
+def test_location_and_employment_constraints_have_reasons() -> None:
+    job = {"location": "New York, NY", "is_remote": True, "employment_type": "contract"}
+    result = evaluate_match(
+        job,
+        {},
+        MatchConstraints(allowed_locations=["Minneapolis"], employment_types=["full_time"]),
+    )
+
+    assert result.eligible is False
+    assert "Job location is outside the allowed locations" in result.reasons
+    assert "Employment type is not allowed" in result.reasons
+
+
+def test_fingerprint_changes_when_constraints_change() -> None:
+    job = {"id": "job"}
+    profile = {"id": "candidate"}
+    original = fingerprint_inputs(job, profile, MatchConstraints())
+    changed = fingerprint_inputs(job, profile, MatchConstraints(remote_only=True))
+
+    assert original != changed
 
 
 def test_empty_and_malformed_profile_data_is_safe() -> None:
