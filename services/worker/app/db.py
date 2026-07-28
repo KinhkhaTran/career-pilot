@@ -16,6 +16,9 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
 import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
 
 from app.config import worker_settings
@@ -48,6 +51,8 @@ jobs_table = sa.Table(
     sa.Column("posted_at", sa.DateTime(timezone=True)),
     sa.Column("expires_at", sa.DateTime(timezone=True)),
     sa.Column("normalized_at", sa.DateTime(timezone=True)),
+    sa.UniqueConstraint("source", "external_id", name="uq_job_source_external_id"),
+    sa.Index("ix_jobs_snapshot_hash", "snapshot_hash"),
 )
 
 discovery_runs_table = sa.Table(
@@ -107,27 +112,56 @@ async def create_discovery_run(
     source: str,
     company_id: str,
     idempotency_key: str,
-) -> str:
-    """Insert a new discovery run record and return its id."""
+) -> tuple[str, bool]:
+    """Atomically create a run, returning ``(run_id, created)``."""
     run_id = str(uuid.uuid4())
     now = datetime.now(UTC)
-    await conn.execute(
-        discovery_runs_table.insert().values(
-            id=run_id,
-            source=source,
-            company_id=company_id,
-            status="pending",
-            idempotency_key=idempotency_key,
-            jobs_discovered=0,
-            jobs_upserted=0,
-            jobs_skipped=0,
-            error_message=None,
-            started_at=None,
-            completed_at=None,
-            created_at=now,
+    values = {
+        "id": run_id,
+        "source": source,
+        "company_id": company_id,
+        "status": "pending",
+        "idempotency_key": idempotency_key,
+        "jobs_discovered": 0,
+        "jobs_upserted": 0,
+        "jobs_skipped": 0,
+        "error_message": None,
+        "started_at": None,
+        "completed_at": None,
+        "created_at": now,
+    }
+    try:
+        async with conn.begin_nested():
+            await conn.execute(discovery_runs_table.insert().values(**values))
+    except IntegrityError:
+        pass
+
+    result = await conn.execute(
+        sa.select(discovery_runs_table.c.id).where(
+            discovery_runs_table.c.idempotency_key == idempotency_key
         )
     )
-    return run_id
+    existing = result.scalar_one()
+    return str(existing), str(existing) == run_id
+
+
+async def get_discovery_run_result(conn: AsyncConnection, run_id: str) -> dict[str, object]:
+    """Return the current persisted result for an idempotent replay."""
+    result = await conn.execute(
+        sa.select(
+            discovery_runs_table.c.status,
+            discovery_runs_table.c.jobs_discovered,
+            discovery_runs_table.c.jobs_upserted,
+            discovery_runs_table.c.jobs_skipped,
+        ).where(discovery_runs_table.c.id == run_id)
+    )
+    row = result.one()
+    return {
+        "status": str(row.status),
+        "discovered": int(row.jobs_discovered),
+        "upserted": int(row.jobs_upserted),
+        "skipped": int(row.jobs_skipped),
+    }
 
 
 async def update_discovery_run_status(
@@ -201,73 +235,55 @@ async def upsert_job(
     posted_at: datetime | None,
     salary_range: dict[str, object] | None,
 ) -> str:
-    """
-    Insert-or-update a job row.
-
-    Returns "upserted" if the row was created/updated, "skipped" if the
-    snapshot hash is unchanged.
-    """
+    """Atomically insert or update a job by its source/external-id key."""
     now = datetime.now(UTC)
-
-    result = await conn.execute(
-        sa.select(jobs_table.c.id, jobs_table.c.snapshot_hash).where(
-            sa.and_(
-                jobs_table.c.source == source,
-                jobs_table.c.external_id == external_id,
-            )
+    values = {
+        "id": str(uuid.uuid4()),
+        "external_id": external_id,
+        "source": source,
+        "source_url": source_url,
+        "title": title,
+        "company": company,
+        "location": location,
+        "is_remote": is_remote,
+        "employment_type": employment_type,
+        "salary_range": salary_range,
+        "description": description,
+        "requirements": requirements,
+        "nice_to_have": nice_to_have,
+        "technologies": technologies,
+        "status": "discovered",
+        "snapshot_hash": snapshot_hash,
+        "discovered_at": now,
+        "posted_at": posted_at,
+        "expires_at": None,
+        "normalized_at": now,
+    }
+    insert = pg_insert if conn.dialect.name == "postgresql" else sqlite_insert
+    statement = insert(jobs_table).values(**values)
+    update_values = {
+        key: statement.excluded[key]
+        for key in (
+            "source_url",
+            "title",
+            "company",
+            "location",
+            "is_remote",
+            "employment_type",
+            "salary_range",
+            "description",
+            "requirements",
+            "nice_to_have",
+            "technologies",
+            "snapshot_hash",
+            "posted_at",
+            "normalized_at",
         )
+    }
+    statement = statement.on_conflict_do_update(
+        index_elements=["source", "external_id"],
+        set_=update_values,
+        where=jobs_table.c.snapshot_hash != statement.excluded.snapshot_hash,
     )
-    row = result.fetchone()
-
-    if row is None:
-        job_id = str(uuid.uuid4())
-        await conn.execute(
-            jobs_table.insert().values(
-                id=job_id,
-                external_id=external_id,
-                source=source,
-                source_url=source_url,
-                title=title,
-                company=company,
-                location=location,
-                is_remote=is_remote,
-                employment_type=employment_type,
-                salary_range=salary_range,
-                description=description,
-                requirements=requirements,
-                nice_to_have=nice_to_have,
-                technologies=technologies,
-                status="discovered",
-                snapshot_hash=snapshot_hash,
-                discovered_at=now,
-                posted_at=posted_at,
-                expires_at=None,
-                normalized_at=now,
-            )
-        )
-        return "upserted"
-
-    if row.snapshot_hash == snapshot_hash:
-        return "skipped"
-
-    await conn.execute(
-        jobs_table.update()
-        .where(jobs_table.c.id == row.id)
-        .values(
-            source_url=source_url,
-            title=title,
-            company=company,
-            location=location,
-            is_remote=is_remote,
-            employment_type=employment_type,
-            salary_range=salary_range,
-            description=description,
-            requirements=requirements,
-            nice_to_have=nice_to_have,
-            technologies=technologies,
-            snapshot_hash=snapshot_hash,
-            posted_at=posted_at,
-            normalized_at=now,
-        )
-    )
-    return "upserted"
+    result = await conn.execute(statement)
+    return "upserted" if result.rowcount else "skipped"

@@ -64,15 +64,7 @@ test-discovery: ## Run discovery tests only (adapter + normalizer + API)
 
 discover: ## Enqueue a discovery run (args: SOURCE=greenhouse COMPANY_ID=acme)
 	@echo "==> Enqueuing discovery run: source=$(SOURCE) company_id=$(COMPANY_ID)"
-	@cd services/worker && python -c "\
-import asyncio; \
-from arq import create_pool; \
-from arq.connections import RedisSettings; \
-async def main(): \
-    redis = await create_pool(RedisSettings()); \
-    await redis.enqueue_job('discover_jobs_task', source='$(SOURCE)', company_id='$(COMPANY_ID)'); \
-    print('Enqueued discover_jobs_task for $(SOURCE):$(COMPANY_ID)'); \
-asyncio.run(main())"
+	@cd services/worker && python -m app.cli discover "$(SOURCE)" "$(COMPANY_ID)"
 
 lint: lint-js lint-python ## Run all linters
 

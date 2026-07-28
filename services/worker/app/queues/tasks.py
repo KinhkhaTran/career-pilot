@@ -11,7 +11,6 @@ No submission, CAPTCHA, credential, or proxy-rotation code is permitted here.
 from __future__ import annotations
 
 import logging
-import uuid
 from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
@@ -51,10 +50,10 @@ async def discover_jobs_task(
     from app.adapters.base import ATSAdapter
     from app.adapters.greenhouse import GreenhouseAdapter
     from app.adapters.lever import LeverAdapter
-    from app.db import create_discovery_run, get_connection
+    from app.db import create_discovery_run, get_connection, get_discovery_run_result
     from app.queues.discovery import run_discovery
 
-    ikey = idempotency_key or f"{source}:{company_id}:{uuid.uuid4().hex}"
+    ikey = idempotency_key or f"{source}:{company_id}"
 
     adapter_map: dict[str, Callable[[], ATSAdapter]] = {
         "greenhouse": lambda: GreenhouseAdapter(board_token=company_id),
@@ -69,9 +68,16 @@ async def discover_jobs_task(
     adapter = factory()
 
     async with get_connection() as conn:
-        run_id = await create_discovery_run(
+        run_id, created = await create_discovery_run(
             conn, source=source, company_id=company_id, idempotency_key=ikey
         )
+        if not created:
+            return {
+                "run_id": run_id,
+                "source": source,
+                "company_id": company_id,
+                **await get_discovery_run_result(conn, run_id),
+            }
 
     logger.info(
         "Discovery task started: source=%r company_id=%r run_id=%r",
