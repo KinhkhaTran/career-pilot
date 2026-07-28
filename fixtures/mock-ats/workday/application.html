@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en" data-automation-id="workdayApp">
+<head>
+  <meta charset="utf-8" />
+  <title>Mock Workday Application — CareerPilot fixture</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; }
+    .step { display: none; }
+    .step.active { display: block; }
+    .field { margin: .5rem 0; display: flex; flex-direction: column; }
+    #errorMessage { color: #b00020; font-weight: 600; }
+    fieldset { margin: .5rem 0; }
+  </style>
+</head>
+<body>
+  <!--
+    Local Workday-style fixture used to prove the CareerPilot Workday adapter and
+    supervised runner before any real employer site is touched. Field hooks use the
+    same data-automation-id attributes the clean-room adapter targets. This page
+    contains NO CAPTCHA/MFA/identity challenge; those are simulated separately and
+    are only ever handed to a human, never solved.
+  -->
+  <h1>Acme Corp — Software Engineer</h1>
+  <p id="errorMessage" data-automation-id="errorMessage" hidden></p>
+
+  <section class="step active" data-automation-id="myInformationPage">
+    <h2>My Information</h2>
+    <div class="field"><label>First name<input data-automation-id="legalName--firstName" /></label></div>
+    <div class="field"><label>Last name<input data-automation-id="legalName--lastName" /></label></div>
+    <div class="field"><label>Email<input data-automation-id="email" /></label></div>
+    <div class="field"><label>Phone<input data-automation-id="phone-number" /></label></div>
+    <div class="field"><label>Address line 1<input data-automation-id="addressLine1" /></label></div>
+    <div class="field"><label>Address line 2<input data-automation-id="addressLine2" /></label></div>
+    <div class="field"><label>City<input data-automation-id="city" /></label></div>
+    <div class="field"><label>State/Region
+      <select data-automation-id="countryRegion"><option value=""></option><option value="CA">CA</option></select></label></div>
+    <div class="field"><label>Postal code<input data-automation-id="postalCode" /></label></div>
+    <div class="field"><label>Country
+      <select data-automation-id="country"><option value=""></option><option value="US">US</option></select></label></div>
+  </section>
+
+  <section class="step" data-automation-id="myExperiencePage">
+    <h2>My Experience</h2>
+    <div class="field"><label>Work experience<textarea data-automation-id="workExperience-1"></textarea></label></div>
+    <div class="field"><label>Education<textarea data-automation-id="education-1"></textarea></label></div>
+    <div class="field"><label>Skills<input data-automation-id="skills" /></label></div>
+    <div class="field"><label>LinkedIn<input data-automation-id="linkedinQuestion" /></label></div>
+    <div class="field"><label>Portfolio/Website<input data-automation-id="websiteQuestion" /></label></div>
+    <div class="field"><label>Résumé<input type="file" data-automation-id="resumeUpload" /></label></div>
+    <div class="field"><label>Cover letter<input type="file" data-automation-id="coverLetterUpload" /></label></div>
+  </section>
+
+  <section class="step" data-automation-id="questionnairePage">
+    <h2>Application Questions</h2>
+    <div class="field"><label>Work authorization
+      <select data-automation-id="workAuthorization">
+        <option value=""></option><option value="authorized">Authorized to work</option></select></label></div>
+    <fieldset><legend>Do you require sponsorship?</legend>
+      <label><input type="radio" name="sponsorship" data-automation-id="sponsorship" value="no" /> No</label>
+      <label><input type="radio" name="sponsorship" data-automation-id="sponsorship" value="yes" /> Yes</label>
+    </fieldset>
+    <fieldset><legend>Are you willing to relocate?</legend>
+      <label><input type="radio" name="relocation" data-automation-id="relocation" value="yes" /> Yes</label>
+      <label><input type="radio" name="relocation" data-automation-id="relocation" value="no" /> No</label>
+    </fieldset>
+    <div class="field"><label>Earliest start date<input data-automation-id="startDate" /></label></div>
+    <div class="field"><label>Years of relevant experience?<input data-automation-id="screeningQuestion-1" /></label></div>
+  </section>
+
+  <section class="step" data-automation-id="selfIdentificationPage">
+    <h2>Voluntary Disclosures</h2>
+    <!-- The runner NEVER fills these; it hands off to a human. -->
+    <div class="field"><label>Gender<select data-automation-id="gender"><option value=""></option></select></label></div>
+    <div class="field"><label>Race/Ethnicity<select data-automation-id="ethnicity"><option value=""></option></select></label></div>
+    <div class="field"><label>Veteran status<select data-automation-id="veteranStatus"><option value=""></option></select></label></div>
+    <div class="field"><label>Disability status<select data-automation-id="disabilityStatus"><option value=""></option></select></label></div>
+    <label><input type="checkbox" data-automation-id="attestationCheckbox" /> I certify the information provided is true and complete.</label>
+  </section>
+
+  <section class="step" data-automation-id="reviewPage">
+    <h2>Review</h2>
+    <pre data-automation-id="reviewSummary"></pre>
+    <button data-automation-id="submitApplication">Submit</button>
+  </section>
+
+  <section class="step" data-automation-id="confirmationPage">
+    <h2>Confirmation</h2>
+    <p data-automation-id="confirmationMessage">You have successfully submitted your application.</p>
+    <p>Confirmation number: <span data-automation-id="confirmationNumber">WD-CONF-2026-0001</span></p>
+  </section>
+
+  <button data-automation-id="bottom-navigation-next-button">Save and Continue</button>
+
+  <script>
+    // Minimal wizard so a real headful Playwright run can exercise the same flow.
+    const steps = ["myInformationPage","myExperiencePage","questionnairePage","selfIdentificationPage","reviewPage","confirmationPage"];
+    let i = 0;
+    const q = (id) => document.querySelector(`[data-automation-id='${id}']`);
+    function render() {
+      steps.forEach((s, idx) => q(s).classList.toggle("active", idx === i));
+      q("bottom-navigation-next-button").hidden = steps[i] === "confirmationPage";
+      if (steps[i] === "reviewPage") {
+        const vals = [...document.querySelectorAll("[data-automation-id]")]
+          .filter(el => el.matches("input,select,textarea") && el.value)
+          .map(el => `${el.getAttribute("data-automation-id")}=${el.value}`);
+        q("reviewSummary").textContent = "Review your application\n" + vals.join("\n");
+      }
+    }
+    q("bottom-navigation-next-button").addEventListener("click", () => { if (i < steps.length - 1) { i++; render(); } });
+    q("submitApplication").addEventListener("click", () => { i = steps.length - 1; render(); });
+    render();
+  </script>
+</body>
+</html>

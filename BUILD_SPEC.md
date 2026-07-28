@@ -8,6 +8,8 @@ The initial version supports discovery, normalization, matching, packet preparat
 
 The data model may represent a future per-application confirmation gate, but it must be disabled in the initial release. A future release may require explicit authorization tied to the exact résumé, answers, packet fingerprint, job snapshot, and final browser state.
 
+> **Phase 6 update:** that per-application confirmation gate is now implemented for the Workday adapter as a **token-gated supervised submission** ([ADR 0008](docs/adr/0008-token-gated-supervised-submission.md)). It is **off by default** (`INITIAL_SUBMISSION_MODE=stop_before_submit`); enabling it requires the opt-in `allow_submit` mode **and** a verified single-use approval token bound to the exact state. No CAPTCHA solving, MFA/inbox-code retrieval, proxy rotation, automation concealment, or access-control bypass is added — those are detected and handed to a human.
+
 ## Phase sequence
 
 1. Foundation: monorepo, Docker Compose, schemas, dashboard shell, fake data, tests, CI.

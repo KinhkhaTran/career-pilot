@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from typing import Any
 
 from app.config import get_redis_settings, worker_settings
 
@@ -14,7 +15,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def _discovery_cron_jobs() -> list:
+def _discovery_cron_jobs() -> list[Any]:
     """Build the scheduled-discovery cron job list, if the scheduler is enabled."""
     if not worker_settings.discovery_scheduler_enabled:
         logger.info("Discovery scheduler disabled; running worker without cron jobs")

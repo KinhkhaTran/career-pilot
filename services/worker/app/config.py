@@ -15,6 +15,12 @@ class WorkerSettings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     database_url: str = "postgresql+asyncpg://careerpilot:careerpilot@localhost:5432/careerpilot"
     initial_submission_mode: Literal["stop_before_submit", "allow_submit"] = "stop_before_submit"
+    # HMAC secret used to verify one-time approval tokens before a submit click.
+    approval_signing_secret: str = ""
+    # Confidence below which the supervised runner pauses for human review.
+    fill_confidence_threshold: float = 0.8
+    # Persistent, headful Chromium profile directory for supervised runs.
+    browser_profile_dir: str = "artifacts/browser-profile"
     max_retries: int = 3
     job_discovery_interval_seconds: int = 3600
 

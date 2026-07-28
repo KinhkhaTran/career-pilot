@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+import json
+import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -7,13 +10,17 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.approval import ApprovalBinding, issue_token
+from app.config import settings
 from app.database import get_db
 from app.models.application import Application
-from app.models.browser_run import BrowserRun
+from app.models.browser_run import ApprovalToken, BrowserRun
 from app.models.job import Job
 from app.models.material import ApplicationMaterial
 from app.models.profile import CandidateProfile
 from app.schemas.browser_run import (
+    ApprovalTokenRequest,
+    ApprovalTokenSchema,
     BrowserRunLaunchContextSchema,
     BrowserRunSchema,
     BrowserRunStartRequest,
@@ -21,6 +28,17 @@ from app.schemas.browser_run import (
 from app.state_machine.application import ApplicationStatus
 
 router = APIRouter()
+
+
+def _answer_set_version(packet_fingerprint: dict[str, Any]) -> int:
+    """Deterministic integer version of the approved answer set.
+
+    Computed identically wherever needed so the API-minted token and the
+    worker-side binding agree without recomputation drift.
+    """
+    answers = packet_fingerprint.get("answer_versions", {})
+    basis = json.dumps(answers, sort_keys=True, separators=(",", ":"))
+    return int(hashlib.sha256(basis.encode()).hexdigest()[:8], 16)
 
 
 def _load_options() -> tuple[Any, ...]:
@@ -129,6 +147,108 @@ async def list_browser_runs(app_id: str, db: AsyncSession = Depends(get_db)) -> 
         .options(*_load_options()).order_by(BrowserRun.created_at.desc())
     )
     return [BrowserRunSchema.model_validate(item) for item in result.scalars().all()]
+
+
+@router.post(
+    "/{app_id}/browser-runs/{run_id}/approval-token",
+    response_model=ApprovalTokenSchema,
+    status_code=status.HTTP_201_CREATED,
+)
+async def issue_approval_token(
+    app_id: str,
+    run_id: str,
+    body: ApprovalTokenRequest,
+    db: AsyncSession = Depends(get_db),
+) -> ApprovalTokenSchema:
+    """Mint a single-use token authorising exactly one Submit click (requirement 12).
+
+    Guarded on: the opt-in ``allow_submit`` mode, an approved application, a run
+    that has stopped at the Review page with a final-page fingerprint the human
+    is confirming, and no previously-issued token for this run.
+    """
+    if settings.initial_submission_mode != "allow_submit":
+        raise HTTPException(
+            status_code=409,
+            detail="submission is disabled; INITIAL_SUBMISSION_MODE is not 'allow_submit'",
+        )
+    if not settings.approval_signing_secret:
+        raise HTTPException(status_code=409, detail="approval signing secret is not configured")
+
+    app = await db.scalar(select(Application).where(Application.id == app_id))
+    if app is None:
+        raise HTTPException(status_code=404, detail="Application not found")
+    if app.status != ApplicationStatus.APPROVED.value or not app.packet_fingerprint:
+        raise HTTPException(status_code=409, detail="Only an approved application may be submitted")
+
+    run = await db.scalar(
+        select(BrowserRun).where(BrowserRun.id == run_id, BrowserRun.application_id == app_id)
+    )
+    if run is None:
+        raise HTTPException(status_code=404, detail="Browser run not found")
+    if run.status != "stopped_at_review" or not run.final_page_fingerprint:
+        raise HTTPException(
+            status_code=409, detail="Run has not stopped at a reviewed final page"
+        )
+    if run.final_page_fingerprint != body.final_page_fingerprint:
+        raise HTTPException(
+            status_code=409,
+            detail="Final-page fingerprint changed since review; re-review is required",
+        )
+    if run.submitted:
+        raise HTTPException(status_code=409, detail="Application already submitted")
+
+    fingerprint = app.packet_fingerprint
+    expected_resume = int(str(fingerprint.get("resume_version", -1)))
+    if body.resume_version != expected_resume:
+        raise HTTPException(
+            status_code=409, detail="Résumé version does not match the approved packet"
+        )
+
+    existing = await db.scalar(
+        select(ApprovalToken).where(ApprovalToken.browser_run_id == run_id)
+    )
+    if existing is not None:
+        raise HTTPException(
+            status_code=409, detail="An approval token has already been issued for this run"
+        )
+
+    answer_set_version = _answer_set_version(fingerprint)
+    binding = ApprovalBinding(
+        application_id=app_id,
+        job_id=app.job_id,
+        resume_version=expected_resume,
+        answer_set_version=answer_set_version,
+        browser_run_id=run_id,
+        final_page_fingerprint=run.final_page_fingerprint,
+    )
+    token_id = uuid.uuid4().hex
+    token = issue_token(token_id, binding, secret=settings.approval_signing_secret)
+
+    record = ApprovalToken(
+        application_id=app_id,
+        browser_run_id=run_id,
+        token_id=token_id,
+        binding_digest=binding.digest(),
+        resume_version=expected_resume,
+        answer_set_version=answer_set_version,
+        final_page_fingerprint=run.final_page_fingerprint,
+        consumed=False,
+    )
+    db.add(record)
+    await db.flush()
+    return ApprovalTokenSchema(
+        id=record.id,
+        token=token,
+        token_id=token_id,
+        application_id=app_id,
+        browser_run_id=run_id,
+        resume_version=expected_resume,
+        answer_set_version=answer_set_version,
+        final_page_fingerprint=run.final_page_fingerprint,
+        binding_digest=binding.digest(),
+        consumed=False,
+        created_at=None,
+    )
 
 
 @router.get("/{app_id}/browser-runs/{run_id}", response_model=BrowserRunSchema)
