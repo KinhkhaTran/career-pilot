@@ -9,6 +9,7 @@ import asyncio
 import json
 import os
 import sys
+from datetime import datetime
 
 # Ensure the db package root is importable when run directly.
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -21,11 +22,32 @@ DATABASE_URL = os.getenv(
     "postgresql+asyncpg://careerpilot:careerpilot@localhost:5432/careerpilot",
 )
 
+# Timestamp columns are passed to asyncpg, which (unlike psycopg2) requires real
+# datetime objects rather than ISO-8601 strings. Normalize these fields up front.
+_TIMESTAMP_KEYS = {
+    "created_at",
+    "updated_at",
+    "discovered_at",
+    "posted_at",
+    "expires_at",
+    "normalized_at",
+}
+
+
+def _normalize_timestamps(data: dict) -> None:
+    for rows in data.values():
+        for row in rows:
+            for key in _TIMESTAMP_KEYS:
+                value = row.get(key)
+                if isinstance(value, str):
+                    row[key] = datetime.fromisoformat(value.replace("Z", "+00:00"))
+
 
 async def seed() -> None:
     from db.seeds.fake_data import get_seed_data
 
     data = get_seed_data()
+    _normalize_timestamps(data)
     engine = create_async_engine(DATABASE_URL, echo=False)
     async_session = async_sessionmaker(engine, expire_on_commit=False)
 
@@ -42,9 +64,9 @@ async def seed() -> None:
                          work_experience, education, certifications,
                          skills, languages, created_at, updated_at)
                     VALUES
-                        (:id, :version, :full_name, :contact_info::jsonb, :summary,
-                         :work_experience::jsonb, :education::jsonb, :certifications::jsonb,
-                         :skills::jsonb, :languages::jsonb, :created_at, :updated_at)
+                        (:id, :version, :full_name, cast(:contact_info as jsonb), :summary,
+                         cast(:work_experience as jsonb), cast(:education as jsonb), cast(:certifications as jsonb),
+                         cast(:skills as jsonb), cast(:languages as jsonb), cast(:created_at as timestamptz), cast(:updated_at as timestamptz))
                     ON CONFLICT (id, version) DO NOTHING
                     """
                 ),
@@ -79,10 +101,10 @@ async def seed() -> None:
                          expires_at, normalized_at)
                     VALUES
                         (:id, :external_id, :source, :source_url, :title, :company,
-                         :location, :is_remote, :employment_type, :salary_range::jsonb,
-                         :description, :requirements::jsonb, :nice_to_have::jsonb,
-                         :technologies::jsonb, :status, :snapshot_hash, :discovered_at,
-                         :posted_at, :expires_at, :normalized_at)
+                         :location, :is_remote, :employment_type, cast(:salary_range as jsonb),
+                         :description, cast(:requirements as jsonb), cast(:nice_to_have as jsonb),
+                         cast(:technologies as jsonb), :status, :snapshot_hash, cast(:discovered_at as timestamptz),
+                         cast(:posted_at as timestamptz), cast(:expires_at as timestamptz), cast(:normalized_at as timestamptz))
                     ON CONFLICT (id) DO NOTHING
                     """
                 ),
@@ -117,7 +139,7 @@ async def seed() -> None:
                          packet_fingerprint, created_at, updated_at)
                     VALUES
                         (:id, :job_id, :candidate_profile_id, :status,
-                         :packet_fingerprint::jsonb, :created_at, :updated_at)
+                         cast(:packet_fingerprint as jsonb), cast(:created_at as timestamptz), cast(:updated_at as timestamptz))
                     ON CONFLICT (id) DO NOTHING
                     """
                 ),
@@ -141,7 +163,7 @@ async def seed() -> None:
                          triggered_by, actor_id, note, created_at)
                     VALUES
                         (:id, :application_id, :from_status, :to_status,
-                         :triggered_by, :actor_id, :note, :created_at)
+                         :triggered_by, :actor_id, :note, cast(:created_at as timestamptz))
                     ON CONFLICT (id) DO NOTHING
                     """
                 ),

@@ -34,7 +34,8 @@ class EducationSchema(BaseModel):
     start_date: str | None = None
     end_date: str | None = None
     gpa: float | None = None
-    honors: str | None = None
+    # Matches the shared TS contract (Education.honors: string[]) and the seed data.
+    honors: list[str] = Field(default_factory=list)
     activities: list[str] = Field(default_factory=list)
 
 
@@ -64,7 +65,8 @@ class CandidateProfileSchema(BaseModel):
     education: list[EducationSchema] = Field(default_factory=list)
     certifications: list[CertificationSchema] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
-    languages: list[LanguageSchema] = Field(default_factory=list)
+    # Matches the shared TS contract (CandidateProfile.languages: string[]) and the seed data.
+    languages: list[str] = Field(default_factory=list)
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

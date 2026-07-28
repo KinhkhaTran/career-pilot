@@ -1,23 +1,36 @@
 import type { Metadata } from "next";
 import type { CandidateProfile } from "@career-pilot/contracts";
+import { camelizeKeys } from "../../lib/api";
 
 export const metadata: Metadata = { title: "Profile" };
 
 const API_BASE = process.env["NEXT_PUBLIC_API_BASE_URL"] ?? "http://localhost:8000";
 
-async function getProfiles(): Promise<CandidateProfile[]> {
+// The list endpoint returns only a lightweight summary; the full profile
+// (contact, summary, skills, experience) lives on the detail endpoint.
+async function getProfile(): Promise<CandidateProfile | null> {
   try {
-    const res = await fetch(`${API_BASE}/api/v1/profiles`, { next: { revalidate: 60 } });
-    if (!res.ok) return [];
-    return res.json() as Promise<CandidateProfile[]>;
+    const listRes = await fetch(`${API_BASE}/api/v1/profiles`, { next: { revalidate: 60 } });
+    if (!listRes.ok) return null;
+    const summaries = camelizeKeys<Array<{ id: string }>>(await listRes.json());
+    const first = summaries[0];
+    if (!first) return null;
+
+    const detailRes = await fetch(`${API_BASE}/api/v1/profiles/${first.id}`, {
+      next: { revalidate: 60 },
+    });
+    if (!detailRes.ok) return null;
+
+    // The API nests contact under `contactInfo`; the contract calls it `contact`.
+    const { contactInfo, ...rest } = camelizeKeys<Record<string, unknown>>(await detailRes.json());
+    return { ...rest, contact: contactInfo ?? {} } as unknown as CandidateProfile;
   } catch {
-    return [];
+    return null;
   }
 }
 
 export default async function ProfilePage(): Promise<JSX.Element> {
-  const profiles = await getProfiles();
-  const profile = profiles[0];
+  const profile = await getProfile();
 
   if (!profile) {
     return (
@@ -98,8 +111,8 @@ export default async function ProfilePage(): Promise<JSX.Element> {
             Work Experience
           </h2>
           <div className="space-y-4">
-            {profile.workExperience.map((exp) => (
-              <div key={exp.id} className="border-l-2 border-indigo-200 pl-4">
+            {profile.workExperience.map((exp, index) => (
+              <div key={index} className="border-l-2 border-indigo-200 pl-4">
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-sm font-semibold text-gray-900">{exp.title}</p>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { JobSummary } from "@career-pilot/contracts";
+import { camelizeKeys } from "../../lib/api";
 
 export const metadata: Metadata = { title: "Jobs" };
 
@@ -9,7 +10,7 @@ async function getJobs(): Promise<JobSummary[]> {
   try {
     const res = await fetch(`${API_BASE}/api/v1/jobs`, { next: { revalidate: 60 } });
     if (!res.ok) return [];
-    return res.json() as Promise<JobSummary[]>;
+    return camelizeKeys<JobSummary[]>(await res.json());
   } catch {
     return [];
   }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ApplicationSummary } from "@career-pilot/contracts";
 import { APPLICATION_STATUS_LABELS } from "@career-pilot/contracts";
+import { camelizeKeys } from "../../lib/api";
 
 export const metadata: Metadata = { title: "Applications" };
 
@@ -10,7 +11,7 @@ async function getApplications(): Promise<ApplicationSummary[]> {
   try {
     const res = await fetch(`${API_BASE}/api/v1/applications`, { next: { revalidate: 30 } });
     if (!res.ok) return [];
-    return res.json() as Promise<ApplicationSummary[]>;
+    return camelizeKeys<ApplicationSummary[]>(await res.json());
   } catch {
     return [];
   }
