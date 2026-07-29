@@ -116,7 +116,7 @@ secret-scan: ## Scan for secrets in tracked and untracked non-ignored files
 
 check-no-submit-bypass: ## Verify no submission bypass is present in production source
 	@echo "==> Checking for prohibited automation..."
-	@if grep -RInE "captcha(_solve)?|bypass_verification|proxy_rotation|inbox_code(_retrieval)?|auto_submit" services/api/app services/worker/app apps/dashboard/src packages --include="*.py" --include="*.ts" --include="*.tsx" 2>/dev/null; then \
+	@if grep -RInE "captcha(_solve)?|bypass_verification|proxy_rotation|inbox_code(_retrieval)?|auto_submit" services/api/app services/worker/app apps/dashboard/src packages --include="*.py" --include="*.ts" --include="*.tsx" --exclude-dir=dist --exclude-dir=node_modules 2>/dev/null; then \
 		echo "BLOCKED: prohibited automation found"; exit 1; \
 	else echo "OK: no prohibited automation"; fi
 
