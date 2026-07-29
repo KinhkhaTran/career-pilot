@@ -49,8 +49,10 @@ export default async function ProfilePage(): Promise<JSX.Element> {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{profile.fullName}</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Profile version {profile.version} · Updated{" "}
-            {new Date(profile.updatedAt).toLocaleDateString()}
+            Profile version {profile.version}
+            {profile.updatedAt
+              ? ` · Updated ${new Date(profile.updatedAt).toLocaleDateString()}`
+              : ""}
           </p>
         </div>
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
@@ -66,18 +68,18 @@ export default async function ProfilePage(): Promise<JSX.Element> {
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
             <div>
               <dt className="text-gray-500">Email</dt>
-              <dd className="text-gray-900">{profile.contact.email}</dd>
+              <dd className="text-gray-900">{profile.contactInfo?.email ?? "—"}</dd>
             </div>
-            {profile.contact.location ? (
+            {profile.contactInfo?.location ? (
               <div>
                 <dt className="text-gray-500">Location</dt>
-                <dd className="text-gray-900">{profile.contact.location}</dd>
+                <dd className="text-gray-900">{profile.contactInfo.location}</dd>
               </div>
             ) : null}
-            {profile.contact.linkedinUrl ? (
+            {profile.contactInfo?.linkedin ? (
               <div className="col-span-2">
                 <dt className="text-gray-500">LinkedIn</dt>
-                <dd className="text-gray-900 truncate">{profile.contact.linkedinUrl}</dd>
+                <dd className="text-gray-900 truncate">{profile.contactInfo.linkedin}</dd>
               </div>
             ) : null}
           </dl>

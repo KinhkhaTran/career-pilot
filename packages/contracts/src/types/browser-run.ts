@@ -1,26 +1,22 @@
+/**
+ * Assisted-run contracts.
+ *
+ * An assisted run drives the in-process mock ATS sandbox only: `targetUrl` is
+ * always a `mock-ats://` address and the plan has no submit action, so every run
+ * terminates at `stopped_before_submit`.
+ */
 export type BrowserRunStatus =
   | "queued"
   | "running"
-  | "stopped_before_submit"
   | "paused"
-  | "stopped_at_review"
-  | "submitted"
+  | "stopped_before_submit"
   | "failed";
 
-/** Why a supervised run handed control back to the human. */
-export type PauseReason =
-  | "not_at_application_form"
-  | "unsupported_ats"
-  | "missing_answer"
-  | "low_confidence"
-  | "legally_sensitive"
-  | "attestation"
-  | "captcha"
-  | "mfa"
-  | "identity_verification"
-  | "login_required"
-  | "validation_error"
-  | "stopped_at_review";
+/** One planned or executed action. `detail` is passed through verbatim. */
+export interface BrowserRunPlanStep {
+  action: string;
+  detail: Record<string, unknown>;
+}
 
 export interface BrowserRunStep {
   id: string;
@@ -55,52 +51,39 @@ export interface BrowserRun {
   headless: boolean;
   adapterName: string;
   stoppedBeforeSubmit: boolean;
-  /** SHA-256 of the reviewed Review-page summary; binds the approval token. */
-  finalPageFingerprint: string | null;
-  submitted: boolean;
-  /** Proof-of-submission captured from the confirmation page, once submitted. */
-  confirmation: Record<string, unknown> | null;
-  submissionMode: "stop_before_submit" | "allow_submit";
+  mode: string;
+  targetKind: string;
+  /** Always a `mock-ats://` sandbox address. */
+  targetUrl: string;
+  plan: BrowserRunPlanStep[];
+  /** Index of the next planned step to execute. */
+  cursor: number;
   createdAt: string | null;
+  pausedAt: string | null;
   completedAt: string | null;
   steps: BrowserRunStep[];
   events: BrowserRunEvent[];
   screenshots: BrowserScreenshot[];
 }
 
-/** Request body a human submits to authorise exactly one Submit click. */
-export interface ApprovalTokenRequest {
-  finalPageFingerprint: string;
-  resumeVersion: number;
-  confirm: true;
-}
-
-/**
- * A single-use token authorising one Submit click, bound to the exact
- * application/job/résumé/answer-set/run/final-page state (requirement 12).
- */
-export interface ApprovalToken {
-  id: string;
-  token: string;
-  tokenId: string;
-  applicationId: string;
-  browserRunId: string;
-  resumeVersion: number;
-  answerSetVersion: number;
-  finalPageFingerprint: string;
-  bindingDigest: string;
-  consumed: boolean;
-  createdAt: string | null;
-}
-
 export interface BrowserRunLaunchContext {
+  /**
+   * Opaque payloads echoed back to the API unchanged — the start request only
+   * succeeds when they deep-equal the approved application's inputs, so these
+   * are never key-rewritten by the dashboard client.
+   */
   packetFingerprint: Record<string, unknown>;
   immutableInputs: Record<string, unknown>;
   approvedFields: Record<string, string>;
+  /** Sandbox target the assisted run will drive (`mock-ats://…`). */
   applicationUrl: string;
+  /** The real posting, shown for manual reading only. Never automated. */
+  employerUrl: string;
+  mockAtsLabel: string;
+  plannedSteps: BrowserRunPlanStep[];
 }
 
-export interface BrowserRunStartRequest extends BrowserRunLaunchContext {
+export interface BrowserRunStartRequest {
   packetFingerprint: Record<string, unknown>;
   immutableInputs: Record<string, unknown>;
   approvedFields: Record<string, string>;

@@ -83,7 +83,7 @@ async def test_browser_run_requires_approval_and_exact_binding(client, db_sessio
         "packet_fingerprint": fingerprint,
         "immutable_inputs": inputs,
         "approved_fields": {"full_name": "Ada Lovelace"},
-        "application_url": "https://jobs.invalid/apply/1",
+        "application_url": "mock-ats://fake-mock/job-browser-1",
     }
 
     started = await client.post(f"/api/v1/applications/{application.id}/browser-runs", json=payload)
@@ -118,7 +118,7 @@ async def test_browser_run_rejects_unapproved_application(client, db_session) ->
             "packet_fingerprint": fingerprint,
             "immutable_inputs": inputs,
             "approved_fields": {"password": "never"},
-            "application_url": "https://jobs.invalid/apply/1",
+            "application_url": "mock-ats://fake-mock/job-browser-1",
         },
     )
     assert response.status_code in {409, 422}

@@ -22,7 +22,12 @@ class BrowserRunLaunchContextSchema(BaseModel):
     packet_fingerprint: dict[str, Any]
     immutable_inputs: dict[str, Any]
     approved_fields: dict[str, str]
+    #: The sandbox target the assisted run will drive (always ``mock-ats://…``).
     application_url: str
+    #: The real posting, shown for manual reading only. Never automated.
+    employer_url: str
+    mock_ats_label: str
+    planned_steps: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class BrowserRunStartRequest(BaseModel):
@@ -31,7 +36,7 @@ class BrowserRunStartRequest(BaseModel):
     approved_fields: dict[str, str] = Field(default_factory=dict)
     application_url: str = Field(min_length=1)
     headless: bool = False
-    adapter: str = "greenhouse-like"
+    adapter: str = "mock-ats-sandbox"
 
     @field_validator("headless")
     @classmethod
@@ -48,6 +53,12 @@ class BrowserRunStartRequest(BaseModel):
         if unknown or sensitive:
             raise ValueError("approved_fields contains unsupported or sensitive fields")
         return value
+
+
+class BrowserRunAdvanceRequest(BaseModel):
+    """Advance a paused-capable run by a bounded number of steps."""
+
+    steps: int = Field(default=1, ge=1, le=25)
 
 
 class BrowserStepSchema(BaseModel):
@@ -78,35 +89,6 @@ class BrowserScreenshotSchema(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class ApprovalTokenRequest(BaseModel):
-    """Human approval of the exact Review page, authorising one Submit click."""
-
-    final_page_fingerprint: str = Field(min_length=1)
-    resume_version: int
-    confirm: bool
-
-    @field_validator("confirm")
-    @classmethod
-    def must_confirm(cls, value: bool) -> bool:
-        if not value:
-            raise ValueError("explicit confirmation is required to issue an approval token")
-        return value
-
-
-class ApprovalTokenSchema(BaseModel):
-    id: str
-    token: str
-    token_id: str
-    application_id: str
-    browser_run_id: str
-    resume_version: int
-    answer_set_version: int
-    final_page_fingerprint: str
-    binding_digest: str
-    consumed: bool
-    created_at: datetime | None = None
-
-
 class BrowserRunSchema(BaseModel):
     id: str
     application_id: str
@@ -115,11 +97,13 @@ class BrowserRunSchema(BaseModel):
     headless: bool
     adapter_name: str
     stopped_before_submit: bool
-    final_page_fingerprint: str | None = None
-    submitted: bool = False
-    confirmation: dict[str, Any] | None = None
-    submission_mode: str = "stop_before_submit"
+    mode: str = "mock_sandbox"
+    target_kind: str = "mock_ats"
+    target_url: str = ""
+    plan: list[dict[str, Any]] = Field(default_factory=list)
+    cursor: int = 0
     created_at: datetime | None = None
+    paused_at: datetime | None = None
     completed_at: datetime | None = None
     steps: list[BrowserStepSchema] = Field(default_factory=list)
     events: list[BrowserEventSchema] = Field(default_factory=list)

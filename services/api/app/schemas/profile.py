@@ -88,13 +88,15 @@ class CandidateProfileSummarySchema(BaseModel):
 
 
 class CandidateProfileCreateSchema(BaseModel):
-    """Payload for creating a new profile (no id / version / timestamps)."""
+    """Payload for creating a new profile version (no id / version / timestamps)."""
 
-    full_name: str
+    full_name: str = Field(min_length=1, max_length=200)
     contact_info: ContactInfoSchema | None = None
     summary: str | None = None
     work_experience: list[WorkExperienceSchema] = Field(default_factory=list)
     education: list[EducationSchema] = Field(default_factory=list)
     certifications: list[CertificationSchema] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
-    languages: list[LanguageSchema] = Field(default_factory=list)
+    # `list[str]` (not LanguageSchema) so a written profile reads back cleanly
+    # through CandidateProfileSchema and matches the shared TS contract.
+    languages: list[str] = Field(default_factory=list)

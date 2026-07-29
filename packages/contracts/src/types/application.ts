@@ -32,13 +32,18 @@ export interface ApplicationEvent {
   createdAt: string; // ISO 8601
 }
 
+/**
+ * Keys stay wire-shaped (snake_case) on purpose: a fingerprint is an opaque
+ * blob that must be echoed back to the API byte-identical when an assisted run
+ * starts, so the dashboard client never rewrites its keys.
+ */
 export interface PacketFingerprint {
-  profileVersion: number;
-  resumeVersion: number;
-  coverLetterVersion: number;
-  answerVersions: Record<string, number>;
-  jobSnapshotHash: string;
-  packetHash: string;
+  profile_version: number;
+  resume_version: number | null;
+  cover_letter_version: number | null;
+  answer_versions: Record<string, number>;
+  job_snapshot_hash: string;
+  packet_hash: string;
 }
 
 export interface Application {
@@ -55,9 +60,18 @@ export interface Application {
 export interface ApplicationSummary {
   id: string;
   jobId: string;
+  candidateProfileId: string;
   status: ApplicationStatus;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Payload for `POST /api/v1/applications` — starts an application for a job. */
+export interface ApplicationCreateRequest {
+  jobId: string;
+  candidateProfileId: string;
+  profileVersion: number | null;
+  note: string | null;
 }
 
 export interface TransitionRequest {

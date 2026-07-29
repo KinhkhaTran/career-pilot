@@ -107,18 +107,70 @@ def evaluate_match(
     if not eligible:
         score = 0.0
 
-    return MatchResult(
-        eligible=eligible,
-        score=score,
-        reasons=reasons,
-        explanation={
-            "skills": {"matched": matched_skills, "required": sorted(job_skill_tokens), "ratio": round(skill_ratio, 4)},
-            "title": {"overlap": title_overlap, "job_tokens": sorted(title_tokens), "ratio": round(title_ratio, 4)},
-            "experience": {"overlap": experience_overlap, "ratio": round(experience_ratio, 4)},
-            "education": {"matched": education_overlap, "ratio": round(education_ratio, 4)},
-            "weights": {"skills": 0.5, "title": 0.2, "experience": 0.2, "education": 0.1},
-        },
+    explanation: dict[str, Any] = {
+        "skills": {"matched": matched_skills, "required": sorted(job_skill_tokens), "ratio": round(skill_ratio, 4)},
+        "title": {"overlap": title_overlap, "job_tokens": sorted(title_tokens), "ratio": round(title_ratio, 4)},
+        "experience": {"overlap": experience_overlap, "ratio": round(experience_ratio, 4)},
+        "education": {"matched": education_overlap, "ratio": round(education_ratio, 4)},
+        "weights": {"skills": 0.5, "title": 0.2, "experience": 0.2, "education": 0.1},
+    }
+    explanation["evidence"] = build_evidence(explanation, reasons)
+    return MatchResult(eligible=eligible, score=score, reasons=reasons, explanation=explanation)
+
+
+def _contribution(ratio: float, weight: float) -> float:
+    return round(ratio * weight * 100, 2)
+
+
+def build_evidence(explanation: dict[str, Any], reasons: list[str]) -> list[dict[str, Any]]:
+    """
+    Turn a raw explanation into ordered, human-readable score evidence.
+
+    Each entry names the component, what actually overlapped, the weight applied,
+    and how many points that component contributed to the final score, so the
+    dashboard never has to invent a rationale for a number.
+    """
+    weights = explanation["weights"]
+    components: tuple[tuple[str, str, list[str], list[str]], ...] = (
+        ("skills", "Skills", explanation["skills"]["matched"], explanation["skills"]["required"]),
+        ("title", "Title", explanation["title"]["overlap"], explanation["title"]["job_tokens"]),
+        ("experience", "Experience", explanation["experience"]["overlap"], []),
+        ("education", "Education", explanation["education"]["matched"], []),
     )
+    evidence: list[dict[str, Any]] = []
+    for key, label, matched, required in components:
+        ratio = float(explanation[key]["ratio"])
+        weight = float(weights[key])
+        if matched:
+            detail = f"Matched {', '.join(matched)}"
+            if required:
+                detail += f" of {len(required)} term(s) from the posting"
+        else:
+            detail = "No overlap found"
+        evidence.append(
+            {
+                "component": key,
+                "label": label,
+                "detail": detail,
+                "matched": list(matched),
+                "ratio": round(ratio, 4),
+                "weight": weight,
+                "points": _contribution(ratio, weight),
+            }
+        )
+    for reason in reasons:
+        evidence.append(
+            {
+                "component": "eligibility",
+                "label": "Blocked",
+                "detail": reason,
+                "matched": [],
+                "ratio": 0.0,
+                "weight": 0.0,
+                "points": 0.0,
+            }
+        )
+    return evidence
 
 
 def fingerprint_inputs(

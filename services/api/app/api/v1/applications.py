@@ -15,6 +15,7 @@ from app.models.job import Job
 from app.models.material import AnswerLibraryEntry, ApplicationMaterial
 from app.models.profile import CandidateProfile
 from app.schemas.application import (
+    ApplicationCreateSchema,
     ApplicationSchema,
     ApplicationSummarySchema,
     TransitionRequestSchema,
@@ -223,6 +224,120 @@ async def review_application(
     await db.flush()
     await db.refresh(app)
     return ApplicationSchema.model_validate(app)
+
+
+#: Statuses from which a candidate is still actively working an application, so a
+#: repeat "start application" click resumes it instead of forking a duplicate.
+_ACTIVE_STATUSES = frozenset(
+    {
+        ApplicationStatus.DRAFT.value,
+        ApplicationStatus.MATCHED.value,
+        ApplicationStatus.PACKET_DRAFT.value,
+        ApplicationStatus.PACKET_READY.value,
+        ApplicationStatus.HUMAN_REVIEW.value,
+        ApplicationStatus.APPROVED.value,
+    }
+)
+
+
+@router.post("", response_model=ApplicationSchema, status_code=201)
+async def create_application(
+    body: ApplicationCreateSchema, db: AsyncSession = Depends(get_db)
+) -> ApplicationSchema:
+    """
+    Start an application for a real stored job.
+
+    The job snapshot and profile version are pinned at creation, so everything
+    downstream (packet, fingerprint, assisted run) is bound to immutable inputs.
+    Re-selecting a job with an application already in flight returns that
+    application rather than creating a second one.
+    """
+    job = await db.scalar(select(Job).where(Job.id == body.job_id))
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Job {body.job_id!r} not found")
+
+    profile_stmt = select(CandidateProfile).where(
+        CandidateProfile.id == body.candidate_profile_id
+    )
+    if body.profile_version is not None:
+        profile_stmt = profile_stmt.where(CandidateProfile.version == body.profile_version)
+    profile = await db.scalar(profile_stmt.order_by(CandidateProfile.version.desc()).limit(1))
+    if profile is None:
+        raise HTTPException(
+            status_code=404, detail=f"Profile {body.candidate_profile_id!r} version not found"
+        )
+
+    existing = await db.scalar(
+        select(Application)
+        .where(
+            Application.job_id == job.id,
+            Application.candidate_profile_id == profile.id,
+            Application.status.in_(_ACTIVE_STATUSES),
+        )
+        .options(selectinload(Application.events))
+        .order_by(Application.created_at.desc())
+        .limit(1)
+    )
+    if existing is not None:
+        return ApplicationSchema.model_validate(existing)
+
+    app = Application(
+        id=str(uuid.uuid4()),
+        job_id=job.id,
+        candidate_profile_id=profile.id,
+        profile_version=profile.version,
+        job_snapshot_hash=job.snapshot_hash,
+        job_snapshot={
+            "title": job.title,
+            "company": job.company,
+            "description": job.description,
+            "snapshot_hash": job.snapshot_hash,
+            "source": job.source,
+            "external_id": job.external_id,
+            "source_url": job.source_url,
+        },
+        status=ApplicationStatus.DRAFT.value,
+    )
+    db.add(app)
+    db.add(
+        ApplicationEvent(
+            id=str(uuid.uuid4()),
+            application_id=app.id,
+            from_status=None,
+            to_status=ApplicationStatus.DRAFT.value,
+            triggered_by="human",
+            note=body.note or "Application started from a selected job",
+        )
+    )
+
+    # A selected job is by definition matched; move straight to the state that
+    # allows packet generation, recording the transition in the audit log.
+    new_status = transition(
+        ApplicationStatus.DRAFT,
+        ApplicationStatus.MATCHED,
+        submission_mode=settings.initial_submission_mode,
+    )
+    db.add(
+        ApplicationEvent(
+            id=str(uuid.uuid4()),
+            application_id=app.id,
+            from_status=ApplicationStatus.DRAFT.value,
+            to_status=new_status.value,
+            triggered_by="system",
+            note="Job selected from preference-based search results",
+        )
+    )
+    app.status = new_status.value
+    await db.flush()
+
+    created = (
+        await db.execute(
+            select(Application)
+            .where(Application.id == app.id)
+            .options(selectinload(Application.events))
+        )
+    ).scalar_one()
+    return ApplicationSchema.model_validate(created)
 
 
 @router.get("", response_model=list[ApplicationSummarySchema])

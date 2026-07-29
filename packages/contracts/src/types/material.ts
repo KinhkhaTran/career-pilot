@@ -26,5 +26,6 @@ export interface AnswerLibraryEntry {
 export interface GeneratedPacket {
   resume: ApplicationMaterial;
   coverLetter: ApplicationMaterial;
+  answers: AnswerLibraryEntry[];
   fingerprint: PacketFingerprint;
 }

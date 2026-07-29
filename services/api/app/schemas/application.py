@@ -66,3 +66,12 @@ class TransitionRequestSchema(BaseModel):
 
     target_status: ApplicationStatus
     note: str | None = None
+
+
+class ApplicationCreateSchema(BaseModel):
+    """Start an application for a stored job and a stored candidate profile."""
+
+    job_id: str
+    candidate_profile_id: str
+    profile_version: int | None = Field(default=None, ge=1)
+    note: str | None = None

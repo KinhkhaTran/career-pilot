@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { JourneyPanel } from "./JourneyPanel";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -33,6 +34,8 @@ export default function DashboardPage(): JSX.Element {
           description="Stopped before submission — requires explicit gate"
         />
       </div>
+
+      <JourneyPanel />
 
       <div className="mt-8 rounded-lg border border-amber-200 bg-amber-50 p-4">
         <div className="flex">

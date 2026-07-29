@@ -57,6 +57,9 @@ export interface JobSummary {
   company: string;
   location: string | null;
   isRemote: boolean;
+  employmentType: EmploymentType | null;
   status: JobStatus;
+  source: JobSource;
   discoveredAt: string;
+  postedAt: string | null;
 }
