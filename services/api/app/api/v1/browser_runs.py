@@ -20,13 +20,15 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from fastapi import APIRouter, Body, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.approval import ApprovalBinding, issue_token
 from app.assisted import (
     MOCK_ATS_LABEL,
     PAUSED,
@@ -47,7 +49,7 @@ from app.assisted import (
 from app.config import settings
 from app.database import get_db
 from app.models.application import Application, ApplicationEvent
-from app.models.browser_run import BrowserRun, BrowserRunEvent, BrowserRunStep
+from app.models.browser_run import ApprovalToken, BrowserRun, BrowserRunEvent, BrowserRunStep
 from app.models.job import Job
 from app.models.material import ApplicationMaterial
 from app.models.mock_ats import MockAtsSubmission
@@ -62,6 +64,12 @@ from app.schemas.mock_ats import MockAtsReceiptSchema
 from app.state_machine.application import ApplicationStatus, StateMachineError, transition
 
 router = APIRouter()
+
+
+class ApprovalTokenRequest(BaseModel):
+    final_page_fingerprint: str
+    resume_version: int
+    confirm: Literal[True]
 
 
 def _load_options() -> tuple[Any, ...]:
@@ -467,3 +475,45 @@ async def get_browser_run(
     app_id: str, run_id: str, db: AsyncSession = Depends(get_db)
 ) -> BrowserRunSchema:
     return BrowserRunSchema.model_validate(await _get_run(db, app_id, run_id))
+
+
+@router.post("/{app_id}/browser-runs/{run_id}/approval-token", status_code=status.HTTP_201_CREATED)
+async def issue_approval_token(
+    app_id: str,
+    run_id: str,
+    body: ApprovalTokenRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Compatibility token endpoint; never drives a real employer page."""
+    if settings.initial_submission_mode != "allow_submit":
+        raise HTTPException(status_code=409, detail="submission is disabled")
+    if not settings.approval_signing_secret:
+        raise HTTPException(status_code=409, detail="approval signing secret is not configured")
+    app = await db.scalar(select(Application).where(Application.id == app_id))
+    if app is None:
+        raise HTTPException(status_code=404, detail="Application not found")
+    if app.status != ApplicationStatus.APPROVED.value or not app.packet_fingerprint:
+        raise HTTPException(status_code=409, detail="Only an approved application may be submitted")
+    run = await db.scalar(select(BrowserRun).where(BrowserRun.id == run_id, BrowserRun.application_id == app_id))
+    if run is None:
+        raise HTTPException(status_code=404, detail="Browser run not found")
+    if run.status != "stopped_at_review" or not run.final_page_fingerprint:
+        raise HTTPException(status_code=409, detail="Run has not stopped at a reviewed final page")
+    if run.final_page_fingerprint != body.final_page_fingerprint:
+        raise HTTPException(status_code=409, detail="Final-page fingerprint changed since review")
+    if run.submitted:
+        raise HTTPException(status_code=409, detail="Application already submitted")
+    expected_resume = int(str(app.packet_fingerprint.get("resume_version", -1)))
+    if body.resume_version != expected_resume:
+        raise HTTPException(status_code=409, detail="Resume version does not match the approved packet")
+    existing = await db.scalar(select(ApprovalToken).where(ApprovalToken.browser_run_id == run_id))
+    if existing is not None:
+        raise HTTPException(status_code=409, detail="An approval token has already been issued for this run")
+    answer_versions = app.packet_fingerprint.get("answer_versions", {})
+    answer_set_version = max((int(value) for value in answer_versions.values()), default=0) if isinstance(answer_versions, dict) else 0
+    binding = ApprovalBinding(app_id, app.job_id, expected_resume, answer_set_version, run_id, run.final_page_fingerprint)
+    token_id = uuid.uuid4().hex
+    token = issue_token(token_id, binding, secret=settings.approval_signing_secret)
+    db.add(ApprovalToken(application_id=app_id, browser_run_id=run_id, token_id=token_id, binding_digest=binding.digest(), resume_version=expected_resume, answer_set_version=answer_set_version, final_page_fingerprint=run.final_page_fingerprint, consumed=False))
+    await db.flush()
+    return {"token": token, "token_id": token_id, "application_id": app_id, "browser_run_id": run_id, "resume_version": expected_resume, "answer_set_version": answer_set_version, "final_page_fingerprint": run.final_page_fingerprint, "binding_digest": binding.digest(), "consumed": False}

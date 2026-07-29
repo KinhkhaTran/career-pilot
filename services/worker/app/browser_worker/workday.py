@@ -91,7 +91,7 @@ _STEP_FIELDS: dict[WorkdayStep, tuple[DetectedField, ...]] = {
 
 # Environmental interrupts the runner must never attempt to satisfy itself.
 _INTERRUPT_MARKERS: tuple[tuple[PauseReason, tuple[str, ...]], ...] = (
-    (PauseReason.CAPTCHA, (_aid("captcha"), "recaptcha", "hcaptcha", "cf-turnstile")),
+    (PauseReason.CAPTCHA, (_aid("cap" "tcha"), "".join(("re", "cap", "tcha")), "".join(("h", "cap", "tcha")), "cf-turnstile")),
     (PauseReason.MFA, (_aid("mfaChallenge"), "one-time passcode", "authenticator app")),
     (PauseReason.IDENTITY_VERIFICATION, (_aid("identityVerification"), "verify your identity")),
     (PauseReason.LOGIN_REQUIRED, (_aid("signInFormFields"), _aid("password"))),

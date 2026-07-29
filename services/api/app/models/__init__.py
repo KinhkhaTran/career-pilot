@@ -1,12 +1,6 @@
 from .application import Application, ApplicationEvent
 from .base import Base
-from .browser_run import (
-    ApprovalToken,
-    BrowserRun,
-    BrowserRunEvent,
-    BrowserRunStep,
-    BrowserScreenshot,
-)
+from .browser_run import BrowserRun, BrowserRunEvent, BrowserRunStep, BrowserScreenshot
 from .discovery_run import DiscoveryRun, DiscoveryRunEvent
 from .job import Job
 from .match import Match
@@ -27,7 +21,6 @@ __all__ = [
     "BrowserRunStep",
     "BrowserRunEvent",
     "BrowserScreenshot",
-    "ApprovalToken",
     "DiscoveryRun",
     "DiscoveryRunEvent",
     "Match",

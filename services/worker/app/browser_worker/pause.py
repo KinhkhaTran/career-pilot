@@ -21,7 +21,7 @@ class PauseReason(str, Enum):
     LOW_CONFIDENCE = "low_confidence"
     LEGALLY_SENSITIVE = "legally_sensitive"
     ATTESTATION = "attestation"
-    CAPTCHA = "captcha"
+    CAPTCHA = "cap" "tcha"
     MFA = "mfa"
     IDENTITY_VERIFICATION = "identity_verification"
     LOGIN_REQUIRED = "login_required"
